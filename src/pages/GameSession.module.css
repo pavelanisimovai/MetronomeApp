@@ -21,98 +21,127 @@
 
 .silencePanel {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
   border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
+  background: #121820;
   border: 1px solid var(--stroke);
-  transition: background 180ms ease, border-color 180ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .silencePanel[data-active='true'] {
-  background: rgba(240, 199, 94, 0.1);
-  border-color: rgba(240, 199, 94, 0.45);
+  border-color: rgba(240, 199, 94, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(240, 199, 94, 0.08);
+}
+
+.silenceMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .silenceBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   letter-spacing: -0.02em;
+  color: var(--accent);
 }
 
 .silencePanel[data-active='true'] .silenceBadge {
   color: var(--gold);
 }
 
-.silencePanel[data-active='false'] .silenceBadge {
-  color: var(--accent);
+.legend {
+  display: flex;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
-.clickDot,
-.silenceDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.clickDot {
-  background: var(--accent);
-  box-shadow: 0 0 12px rgba(61, 214, 198, 0.55);
-}
-
-.silenceDot {
-  background: var(--gold);
-  box-shadow: 0 0 12px rgba(240, 199, 94, 0.55);
-}
-
-.timeline {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+.legend span {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
 }
 
-.timelineSeg {
-  min-height: 36px;
-  border-radius: 10px;
+.legendSound,
+.legendSilence {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legendSound {
+  background: var(--accent);
+}
+
+.legendSilence {
+  background: var(--gold);
+}
+
+.boxTrack {
   display: grid;
-  place-items: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border: 1px solid transparent;
-  opacity: 0.7;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+  min-height: 52px;
 }
 
-.segClick {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: rgba(61, 214, 198, 0.28);
+.box {
+  min-height: 52px;
+  border-radius: 8px;
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease;
+  opacity: 0.38;
 }
 
-.segMute {
-  background: var(--gold-soft);
-  color: var(--gold);
-  border-color: rgba(240, 199, 94, 0.28);
-  border-style: dashed;
+.boxSound {
+  background: var(--accent);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
 }
 
-.segCurrent {
+.boxSilence {
+  background: var(--gold);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+}
+
+.boxPreview {
   opacity: 1;
-  transform: scale(1.03);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
 }
 
-.silenceHint {
+.boxPast {
+  opacity: 0.55;
+  filter: saturate(0.85);
+}
+
+.boxCurrent {
+  opacity: 1;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.55),
+    0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.silenceFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
   color: var(--text-muted);
-  font-size: 0.88rem;
-  line-height: 1.4;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.silenceFooter span:first-child {
+  font-family: var(--font-display);
+  color: var(--text);
+  font-size: 1rem;
 }
 
 .pulseStage {

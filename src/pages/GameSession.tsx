@@ -474,51 +474,61 @@ export function GameSession() {
 
       {isSilentLevel ? (
         <div className={styles.silencePanel} data-active={inSilence ? 'true' : 'false'}>
-          <div className={styles.silenceBadge} aria-live="polite">
-            {phase === 'playing' ? (
-              inSilence ? (
-                <>
-                  <span className={styles.silenceDot} />
-                  Silence
-                </>
-              ) : (
-                <>
-                  <span className={styles.clickDot} />
-                  Click on
-                </>
+          <div className={styles.silenceMeta}>
+            <div className={styles.silenceBadge} aria-live="polite">
+              {phase === 'playing' ? (inSilence ? 'Silence' : 'Sound') : 'Pattern'}
+            </div>
+            <div className={styles.legend}>
+              <span>
+                <i className={styles.legendSound} /> Sound
+              </span>
+              <span>
+                <i className={styles.legendSilence} /> Silence
+              </span>
+            </div>
+          </div>
+
+          <div
+            className={styles.boxTrack}
+            role="img"
+            aria-label={`${playBars} sound bar${playBars === 1 ? '' : 's'}, ${muteBars} silence bar${
+              muteBars === 1 ? '' : 's'
+            }`}
+          >
+            {timeline.map((isClick, i) => {
+              const current =
+                silenceUi && phase === 'playing' && silenceUi.barInCycle === i
+              const past =
+                silenceUi && phase === 'playing' && silenceUi.barInCycle > i
+              return (
+                <div
+                  key={i}
+                  className={[
+                    styles.box,
+                    isClick ? styles.boxSound : styles.boxSilence,
+                    current ? styles.boxCurrent : '',
+                    past ? styles.boxPast : '',
+                    phase !== 'playing' ? styles.boxPreview : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                />
               )
-            ) : (
-              <>
-                Pattern: {playBars} bar{playBars === 1 ? '' : 's'} click · {muteBars} bar
-                {muteBars === 1 ? '' : 's'} silence
-              </>
-            )}
+            })}
           </div>
-          <div className={styles.timeline} aria-hidden>
-            {timeline.map((isClick, i) => (
-              <div
-                key={i}
-                className={`${styles.timelineSeg} ${isClick ? styles.segClick : styles.segMute} ${
-                  silenceUi && phase === 'playing' && silenceUi.barInCycle === i
-                    ? styles.segCurrent
-                    : ''
-                }`}
-              >
-                {isClick ? 'Click' : 'Silent'}
-              </div>
-            ))}
+
+          <div className={styles.silenceFooter}>
+            <span>
+              {beatDisplay.current}/{beatDisplay.total || level.durationBeats || 16}
+            </span>
+            <span>
+              {phase === 'playing'
+                ? inSilence
+                  ? 'Yellow = keep tapping, no click'
+                  : 'Teal = click is on'
+                : `${playBars} sound · ${muteBars} silence`}
+            </span>
           </div>
-          {phase === 'playing' ? (
-            <p className={styles.silenceHint}>
-              {inSilence
-                ? 'Metronome is muted — keep the same pulse.'
-                : 'Metronome is audible — lock in the groove.'}
-            </p>
-          ) : (
-            <p className={styles.silenceHint}>
-              Watch the timeline: gold = silence. Keep tapping through both.
-            </p>
-          )}
         </div>
       ) : null}
 
@@ -531,19 +541,12 @@ export function GameSession() {
           hideHits={level.game === 'memory' && phase === 'respond'}
           hitStates={hitStates}
         />
-      ) : (
-        <div
-          className={styles.pulseStage}
-          data-active={phase === 'playing'}
-          data-silence={inSilence ? 'true' : 'false'}
-        >
+      ) : isSilentLevel ? null : (
+        <div className={styles.pulseStage} data-active={phase === 'playing'}>
           <div className={styles.pulseRing} />
           <div className={styles.pulseCore}>
             {beatDisplay.current}/{beatDisplay.total || level.durationBeats || 16}
           </div>
-          {isSilentLevel && phase === 'playing' ? (
-            <p className={styles.pulseCaption}>{inSilence ? 'SILENCE' : 'CLICK'}</p>
-          ) : null}
         </div>
       )}
 
