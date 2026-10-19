@@ -1,9 +1,10 @@
 export type HitGrade = 'perfect' | 'good' | 'ok' | 'miss'
 
+/** Touch-friendly windows — phone taps are slower than MIDI pads. */
 export const HIT_WINDOWS_MS = {
-  perfect: 40,
-  good: 90,
-  ok: 150,
+  perfect: 55,
+  good: 120,
+  ok: 250,
 } as const
 
 export function gradeHit(errorMs: number, offsetMs = 0): HitGrade {

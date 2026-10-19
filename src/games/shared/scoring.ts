@@ -96,7 +96,7 @@ export function matchTapsToExpected(
   expected: number[],
   taps: number[],
   offsetMs: number,
-  windowMs = 160,
+  windowMs = 220,
 ): HitRecord[] {
   const used = new Set<number>()
   const hits: HitRecord[] = []

@@ -210,16 +210,17 @@
   color: var(--gold);
 }
 
-.countdown {
-  text-align: center;
-  font-family: var(--font-display);
-  font-size: 4rem;
-  font-weight: 800;
-  color: var(--gold);
+.playDock {
+  display: grid;
+  gap: 12px;
+  /* Fixed feedback + tap rows so countdown text never shifts the hit target */
+  grid-template-rows: 52px auto auto;
+  align-items: stretch;
 }
 
 .tapPad {
   min-height: 140px;
+  width: 100%;
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(61, 214, 198, 0.22), rgba(61, 214, 198, 0.08));
   border: 1px solid rgba(61, 214, 198, 0.35);
@@ -233,9 +234,21 @@
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
-.tapPad:active {
+.tapPad:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.tapPad:active:not(:disabled) {
   transform: scale(0.985);
   background: rgba(61, 214, 198, 0.28);
+}
+
+.tapPadCountdown {
+  font-size: 3.4rem;
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(240, 199, 94, 0.2), rgba(18, 26, 43, 0.9));
+  border-color: rgba(240, 199, 94, 0.4);
 }
 
 .tapPadSilent {
@@ -244,7 +257,7 @@
   color: var(--gold);
 }
 
-.tapPadSilent:active {
+.tapPadSilent:active:not(:disabled) {
   background: rgba(240, 199, 94, 0.3);
 }
 
@@ -252,6 +265,11 @@
   color: var(--text-dim);
   font-size: 0.85rem;
   line-height: 1.4;
+  min-height: 2.6em;
+}
+
+.hintSpacer {
+  min-height: 2.6em;
 }
 
 @keyframes pulse {

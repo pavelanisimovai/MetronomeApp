@@ -45,7 +45,15 @@ export function MetronomePage() {
       audibleSubdivisions: settings.audibleSubdivisions,
       mutedBars: null,
     })
-  }, [settings])
+  }, [
+    settings.bpm,
+    settings.timeSignature,
+    settings.subdivision,
+    settings.sound,
+    settings.volume,
+    settings.accentDownbeat,
+    settings.audibleSubdivisions,
+  ])
 
   useEffect(() => {
     const unsub = metronomeEngine.onBeat((ev) => {

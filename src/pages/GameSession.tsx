@@ -59,6 +59,8 @@ export function GameSession() {
   const endedRef = useRef(false)
   const timersRef = useRef<number[]>([])
   const rafRef = useRef<number | null>(null)
+  /** Wall-clock seconds (performance.now()/1000) — scoring clock, independent of AudioContext stalls */
+  const wallNow = () => performance.now() / 1000
 
   const nextLevelId = useMemo(() => {
     if (!level) return null
@@ -170,8 +172,28 @@ export function GameSession() {
       const expected = expectedRef.current
       if (!expected.length) return
 
+      const windowSec = 0.28 // matches HIT_WINDOWS_MS.ok with a little slack
       let cursor = hitCursorRef.current
-      while (cursor < expected.length && expected[cursor] < tapSec - 0.18) {
+      // Find nearest remaining expected onset within the hit window
+      let best = -1
+      let bestAbs = Infinity
+      for (let i = cursor; i < expected.length; i++) {
+        const abs = Math.abs(tapSec - expected[i])
+        if (abs < bestAbs) {
+          bestAbs = abs
+          best = i
+        }
+        // Stop searching far into the future
+        if (expected[i] - tapSec > windowSec) break
+      }
+
+      if (best < 0 || bestAbs > windowSec) {
+        // Too early for the next note — ignore extra taps
+        return
+      }
+
+      // Any skipped onsets before the matched one are misses
+      while (cursor < best) {
         liveHitsRef.current.push({
           expectedSec: expected[cursor],
           tapSec: null,
@@ -181,13 +203,10 @@ export function GameSession() {
         })
         cursor++
       }
-      hitCursorRef.current = cursor
-      if (cursor >= expected.length) return
-      if (tapSec < expected[cursor] - 0.16) return
 
-      const hit = evaluateTap(expected[cursor], tapSec, latencyOffsetMs)
+      const hit = evaluateTap(expected[best], tapSec, latencyOffsetMs)
       liveHitsRef.current.push(hit)
-      hitCursorRef.current = cursor + 1
+      hitCursorRef.current = best + 1
       setLiveGrade(hit.grade)
       setEarlyLate(hit.earlyLate)
       setCombo((c) => (hit.grade === 'miss' ? 0 : c + 1))
@@ -219,12 +238,11 @@ export function GameSession() {
           : null,
     })
 
-    const ctx = metronomeEngine.getContext()!
     const step = beatDurationSec(level.bpm) / level.subdivision
     const target =
       level.durationBeats ?? level.bars * level.beatsPerBar * level.subdivision
-    // Must match MetronomeEngine.start() lead-in (0.06s)
-    const startAt = ctx.currentTime + 0.06
+    // Score on wall clock; audio engine uses its own timeline for clicks.
+    const startAt = wallNow() + 0.06
     const expected = Array.from({ length: target }, (_, i) => startAt + i * step)
     expectedRef.current = expected
     tapsRef.current = []
@@ -237,9 +255,7 @@ export function GameSession() {
 
     await metronomeEngine.start(0)
 
-    const wallStart = performance.now()
     const durationMs = step * target * 1000
-
     const playBars = level.playBars ?? 1
     const muteBars = level.muteBars ?? 1
     const stepsPerBar = level.beatsPerBar * level.subdivision
@@ -247,11 +263,7 @@ export function GameSession() {
 
     const tick = () => {
       if (endedRef.current || phaseRef.current !== 'playing') return
-      const audioNow = metronomeEngine.currentTime
-      const wallElapsed = performance.now() - wallStart
-      // Prefer audio clock; fall back to wall clock if AudioContext stalls
-      const audioElapsed = Math.max(0, audioNow - startAt)
-      const elapsedSec = Math.max(audioElapsed, wallElapsed / 1000)
+      const elapsedSec = Math.max(0, wallNow() - startAt)
       const idx = Math.min(target, Math.floor(elapsedSec / step) + (elapsedSec > 0 ? 1 : 0))
       setBeatDisplay({ current: Math.min(idx, target), total: target })
       setActiveIndex(Math.max(0, idx - 1))
@@ -270,73 +282,77 @@ export function GameSession() {
         })
       }
 
-      if (elapsedSec >= step * target + 0.28 || wallElapsed >= durationMs + 400) {
+      if (elapsedSec >= step * target + 0.28) {
         finishFromLive()
         return
       }
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
-    // Hard safety end even if rAF is throttled
     later(() => {
       if (!endedRef.current) finishFromLive()
     }, durationMs + 900)
   }, [finishFromLive, level, sound, volume])
 
-  const beginRespond = useCallback(
-    async (respondStart: number) => {
-      if (!level?.pattern) return
-      const step = beatDurationSec(level.bpm) / level.subdivision
-      expectedRef.current = level.pattern
-        .map((v, i) => (v ? respondStart + i * step : -1))
-        .filter((t) => t >= 0)
-      tapsRef.current = []
-      hitCursorRef.current = 0
-      liveHitsRef.current = []
-      setActiveIndex(null)
-      phaseRef.current = 'respond'
-      setPhase('respond')
-      if (level.game === 'memory') {
-        setHitStates(level.pattern.map(() => 'pending'))
+  const beginRespond = useCallback(async () => {
+    if (!level?.pattern) return
+    const step = beatDurationSec(level.bpm) / level.subdivision
+    await metronomeEngine.ensureContext()
+    const ctx = metronomeEngine.getContext()!
+    const total = level.pattern.length
+
+    tapsRef.current = []
+    hitCursorRef.current = 0
+    liveHitsRef.current = []
+    expectedRef.current = []
+    setActiveIndex(null)
+    phaseRef.current = 'respond'
+    setPhase('respond')
+    if (level.game === 'memory') {
+      setHitStates(level.pattern.map(() => 'pending'))
+    }
+
+    // Arm the clock after "Your turn" paints so visual + taps share one timeline
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+    if (phaseRef.current !== 'respond' || endedRef.current) return
+
+    const gap = 0.5
+    const wallLead = wallNow() + gap
+    const audioLead = ctx.currentTime + gap
+    expectedRef.current = level.pattern
+      .map((v, i) => (v ? wallLead + i * step : -1))
+      .filter((t) => t >= 0)
+
+    for (let i = 0; i < total; i++) {
+      const t = audioLead + i * step
+      const isDownbeat = i % (level.beatsPerBar * level.subdivision) === 0
+      if (level.game === 'echo' && i % level.subdivision === 0) {
+        void metronomeEngine.playClickAt(t, isDownbeat ? 'downbeat' : 'beat')
+      } else if (level.game === 'memory' && isDownbeat) {
+        void metronomeEngine.playClickAt(t, 'downbeat')
       }
+    }
 
-      await metronomeEngine.ensureContext()
-      const ctx = metronomeEngine.getContext()!
-      const total = level.pattern.length
-
-      for (let i = 0; i < total; i++) {
-        const t = respondStart + i * step
-        const isDownbeat = i % (level.beatsPerBar * level.subdivision) === 0
-        if (level.game === 'echo' && i % level.subdivision === 0) {
-          void metronomeEngine.playClickAt(t, isDownbeat ? 'downbeat' : 'beat')
-        } else if (level.game === 'memory' && isDownbeat) {
-          void metronomeEngine.playClickAt(t, 'downbeat')
-        }
-      }
-
-      const wallStart = performance.now()
-      const respondMs = total * step * 1000
-      const respondTick = () => {
-        if (endedRef.current || phaseRef.current !== 'respond') return
-        const audioElapsed = Math.max(0, ctx.currentTime - respondStart)
-        const wallElapsed = (performance.now() - wallStart) / 1000
-        const elapsed = Math.max(audioElapsed, wallElapsed)
-        const idx = Math.min(total, Math.floor(elapsed / step))
-        setActiveIndex(Math.max(0, idx - 1))
-        setProgress(idx / total)
-        if (elapsed >= total * step + 0.3) {
-          finishFromTaps()
-          return
-        }
-        rafRef.current = requestAnimationFrame(respondTick)
+    const respondMs = total * step * 1000 + gap * 1000
+    const respondTick = () => {
+      if (endedRef.current || phaseRef.current !== 'respond') return
+      const elapsed = Math.max(0, wallNow() - wallLead)
+      const idx = Math.min(total, Math.floor(elapsed / step))
+      setActiveIndex(Math.max(0, idx - 1))
+      setProgress(idx / total)
+      if (wallNow() >= wallLead + total * step + 0.3) {
+        finishFromTaps()
+        return
       }
       rafRef.current = requestAnimationFrame(respondTick)
-      later(() => {
-        if (phaseRef.current === 'respond' && !endedRef.current) finishFromTaps()
-      }, respondMs + 700)
-    },
-    [finishFromTaps, level],
-  )
+    }
+    rafRef.current = requestAnimationFrame(respondTick)
+    later(() => {
+      if (phaseRef.current === 'respond' && !endedRef.current) finishFromTaps()
+    }, respondMs + 700)
+  }, [finishFromTaps, level])
 
   const playPatternListen = useCallback(async () => {
     if (!level?.pattern) return
@@ -344,13 +360,14 @@ export function GameSession() {
     metronomeEngine.setConfig({ sound, volume })
     const ctx = metronomeEngine.getContext()!
     const step = beatDurationSec(level.bpm) / level.subdivision
-    const start = ctx.currentTime + 0.15
+    const audioStart = ctx.currentTime + 0.15
+    const wallStart = wallNow()
     phaseRef.current = 'listen'
     setPhase('listen')
     setHitStates(level.pattern.map((s) => (s ? 'pending' : 'rest')))
 
     level.pattern.forEach((stepVal, i) => {
-      const t = start + i * step
+      const t = audioStart + i * step
       if (stepVal) {
         const kind = i % (level.beatsPerBar * level.subdivision) === 0 ? 'downbeat' : 'beat'
         void metronomeEngine.playClickAt(t, kind)
@@ -358,18 +375,15 @@ export function GameSession() {
     })
 
     const listenMs = level.pattern.length * step * 1000
-    const wallStart = performance.now()
     let handedOff = false
     const handoff = () => {
       if (handedOff || phaseRef.current !== 'listen') return
       handedOff = true
-      void beginRespond(ctx.currentTime + 0.25)
+      void beginRespond()
     }
     const listenTick = () => {
       if (phaseRef.current !== 'listen' || handedOff) return
-      const audioElapsed = Math.max(0, ctx.currentTime - start)
-      const wallElapsed = (performance.now() - wallStart) / 1000
-      const elapsed = Math.max(audioElapsed, wallElapsed)
+      const elapsed = Math.max(0, wallNow() - wallStart)
       const idx = Math.min(level.pattern!.length, Math.floor(elapsed / step) + 1)
       setActiveIndex(Math.max(0, idx - 1))
       if (elapsed >= level.pattern!.length * step + 0.35) {
@@ -408,10 +422,18 @@ export function GameSession() {
       return
     }
     if (phaseRef.current !== 'playing' && phaseRef.current !== 'respond') return
-    const ctx = metronomeEngine.getContext()
-    if (!ctx) return
-    const tapSec = ctx.currentTime
+    const tapSec = wallNow()
     tapsRef.current.push(tapSec)
+    if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('debug')) {
+      const next = expectedRef.current[hitCursorRef.current]
+      console.log('tap', {
+        phase: phaseRef.current,
+        tapSec,
+        nextExpected: next,
+        deltaMs: next != null ? (tapSec - next) * 1000 : null,
+        expectedLeft: expectedRef.current.length - hitCursorRef.current,
+      })
+    }
     registerLiveTap(tapSec)
   }, [level, registerLiveTap, startCountdown])
 
@@ -550,41 +572,49 @@ export function GameSession() {
         </div>
       )}
 
-      <HitFeedback grade={liveGrade} earlyLate={earlyLate} />
+      <div className={styles.playDock}>
+        <HitFeedback grade={liveGrade} earlyLate={earlyLate} />
 
-      {phase === 'countdown' ? <div className={styles.countdown}>{countdown || 'Go'}</div> : null}
+        {phase !== 'done' ? (
+          <button
+            type="button"
+            className={`${styles.tapPad} ${inSilence ? styles.tapPadSilent : ''} ${
+              phase === 'countdown' ? styles.tapPadCountdown : ''
+            }`}
+            disabled={phase === 'countdown' || phase === 'listen'}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              if (phase === 'countdown' || phase === 'listen') return
+              onTap()
+            }}
+          >
+            {phase === 'ready'
+              ? 'Tap to start'
+              : phase === 'countdown'
+                ? countdown || 'Go'
+                : phase === 'listen'
+                  ? 'Listening…'
+                  : inSilence
+                    ? 'Tap through silence'
+                    : 'Tap'}
+          </button>
+        ) : result ? (
+          <ResultCard
+            score={result}
+            levelId={level.id}
+            nextLevelId={nextLevelId}
+            onRetry={resetSession}
+          />
+        ) : null}
 
-      {phase !== 'done' ? (
-        <button
-          type="button"
-          className={`${styles.tapPad} ${inSilence ? styles.tapPadSilent : ''}`}
-          onPointerDown={(e) => {
-            e.preventDefault()
-            onTap()
-          }}
-        >
-          {phase === 'ready'
-            ? 'Tap to start'
-            : phase === 'listen'
-              ? 'Listening…'
-              : inSilence
-                ? 'Tap through silence'
-                : 'Tap'}
-        </button>
-      ) : null}
-
-      {result ? (
-        <ResultCard
-          score={result}
-          levelId={level.id}
-          nextLevelId={nextLevelId}
-          onRetry={resetSession}
-        />
-      ) : (
-        <p className={styles.hint}>
-          Windows: Perfect ≤40ms · Good ≤90ms · OK ≤150ms. Adjust latency in Settings if needed.
-        </p>
-      )}
+        {phase !== 'done' ? (
+          <p className={styles.hint}>
+            Windows: Perfect ≤55ms · Good ≤120ms · OK ≤250ms. Adjust latency in Settings if needed.
+          </p>
+        ) : (
+          <div className={styles.hintSpacer} aria-hidden />
+        )}
+      </div>
     </div>
   )
 }
