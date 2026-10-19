@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:smoke": "node scripts/metronome-smoke.mjs && node scripts/timing-smoke.mjs && node scripts/echo-smoke.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",

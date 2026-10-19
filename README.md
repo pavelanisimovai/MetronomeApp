@@ -24,7 +24,15 @@ npm run build
 npm run preview
 ```
 
+Smoke tests (with preview running on `:4173`):
+
+```bash
+npm run test:smoke
+```
+
 Static output lands in `dist/` — deploy to Cloudflare Pages, Vercel, Netlify, or GitHub Pages.
+
+Tip: append `?nosw=1` to skip the service worker during local testing.
 
 ## Stack
 
