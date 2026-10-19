@@ -1,0 +1,123 @@
+.page {
+  display: grid;
+  gap: 24px;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--accent);
+  font-size: 1.15rem;
+}
+
+.page h1 {
+  margin-top: 4px;
+  font-size: 2.2rem;
+}
+
+.sub {
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stats > div {
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--stroke);
+  display: grid;
+  gap: 6px;
+}
+
+.stats span {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.stats strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+}
+
+.skills,
+.recent {
+  display: grid;
+  gap: 12px;
+}
+
+.skills h2,
+.recent h2 {
+  font-size: 1.35rem;
+}
+
+.skillRow {
+  display: grid;
+  gap: 8px;
+}
+
+.skillTop {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+
+.skillTop strong {
+  color: var(--accent);
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+
+.meter > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-strong), var(--gold));
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--stroke);
+}
+
+.item small {
+  display: block;
+  color: var(--text-dim);
+  text-transform: capitalize;
+  margin-top: 2px;
+}
+
+.right {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.stars {
+  color: var(--gold);
+  font-size: 0.8rem;
+}
+
+.empty {
+  color: var(--text-dim);
+}

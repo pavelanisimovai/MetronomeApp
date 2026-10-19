@@ -1,0 +1,39 @@
+:root {
+  --bg-deep: #070b14;
+  --bg: #0b1220;
+  --bg-elevated: #121a2b;
+  --bg-soft: #1a2438;
+  --stroke: rgba(255, 255, 255, 0.08);
+  --stroke-strong: rgba(255, 255, 255, 0.16);
+  --text: #eef3ff;
+  --text-muted: #9aa8c3;
+  --text-dim: #6d7b96;
+  --accent: #3dd6c6;
+  --accent-strong: #24b9a9;
+  --accent-soft: rgba(61, 214, 198, 0.16);
+  --gold: #f0c75e;
+  --gold-soft: rgba(240, 199, 94, 0.16);
+  --danger: #ff6b7a;
+  --good: #6ee7a8;
+  --ok: #f0c75e;
+  --miss: #ff6b7a;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --font-display: 'Bricolage Grotesque', Georgia, serif;
+  --font-body: 'Figtree', system-ui, sans-serif;
+  --nav-h: 72px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --max-w: 720px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

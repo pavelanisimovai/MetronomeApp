@@ -1,0 +1,38 @@
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 10px 10px calc(10px + var(--safe-bottom));
+  background: rgba(7, 11, 20, 0.88);
+  border-top: 1px solid var(--stroke);
+  backdrop-filter: blur(14px);
+}
+
+.link {
+  min-height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (min-width: 900px) {
+  .nav {
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(100%, var(--max-w));
+    border-radius: 18px 18px 0 0;
+  }
+}

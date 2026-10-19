@@ -1,0 +1,36 @@
+.slot {
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+}
+
+.label {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.hint {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.perfect .label {
+  color: var(--good);
+}
+
+.good .label {
+  color: var(--accent);
+}
+
+.ok .label {
+  color: var(--ok);
+}
+
+.miss .label {
+  color: var(--miss);
+}
