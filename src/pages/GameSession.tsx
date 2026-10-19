@@ -44,6 +44,12 @@ export function GameSession() {
     Array<'pending' | 'perfect' | 'good' | 'ok' | 'miss' | 'rest'>
   >([])
   const [beatDisplay, setBeatDisplay] = useState({ current: 0, total: 0 })
+  const [silenceUi, setSilenceUi] = useState<{
+    active: boolean
+    barInCycle: number
+    playBars: number
+    muteBars: number
+  } | null>(null)
 
   const expectedRef = useRef<number[]>([])
   const tapsRef = useRef<number[]>([])
@@ -93,6 +99,7 @@ export function GameSession() {
     setResult(null)
     setHitStates([])
     setBeatDisplay({ current: 0, total: 0 })
+    setSilenceUi(null)
     expectedRef.current = []
     tapsRef.current = []
     hitCursorRef.current = 0
@@ -233,6 +240,11 @@ export function GameSession() {
     const wallStart = performance.now()
     const durationMs = step * target * 1000
 
+    const playBars = level.playBars ?? 1
+    const muteBars = level.muteBars ?? 1
+    const stepsPerBar = level.beatsPerBar * level.subdivision
+    const cycle = playBars + muteBars
+
     const tick = () => {
       if (endedRef.current || phaseRef.current !== 'playing') return
       const audioNow = metronomeEngine.currentTime
@@ -244,6 +256,20 @@ export function GameSession() {
       setBeatDisplay({ current: Math.min(idx, target), total: target })
       setActiveIndex(Math.max(0, idx - 1))
       setProgress(Math.min(1, idx / target))
+
+      if (level.game === 'silent' && cycle > 0 && stepsPerBar > 0) {
+        const stepIndex = Math.min(target - 1, Math.max(0, idx - 1))
+        const barIndex = Math.floor(stepIndex / stepsPerBar)
+        const barInCycle = barIndex % cycle
+        const muted = barInCycle >= playBars
+        setSilenceUi({
+          active: muted,
+          barInCycle,
+          playBars,
+          muteBars,
+        })
+      }
+
       if (elapsedSec >= step * target + 0.28 || wallElapsed >= durationMs + 400) {
         finishFromLive()
         return
@@ -403,6 +429,8 @@ export function GameSession() {
     )
   }
 
+  const isSilentLevel = level.game === 'silent'
+  const inSilence = Boolean(silenceUi?.active && phase === 'playing')
   const phaseLabel =
     phase === 'listen'
       ? 'Listen'
@@ -411,15 +439,22 @@ export function GameSession() {
         : phase === 'countdown'
           ? 'Get ready'
           : phase === 'playing'
-            ? level.game === 'silent'
-              ? 'Keep tapping'
+            ? isSilentLevel
+              ? inSilence
+                ? 'Silence — keep tapping'
+                : 'Click on'
               : 'Tap the pulse'
             : phase === 'done'
               ? 'Results'
               : 'Ready'
 
+  const playBars = level.playBars ?? 1
+  const muteBars = level.muteBars ?? 1
+  const cycleBars = playBars + muteBars
+  const timeline = Array.from({ length: cycleBars }, (_, i) => i < playBars)
+
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-silence={inSilence ? 'true' : 'false'}>
       <div className={styles.topBar}>
         <Link to="/" className={styles.back}>
           ← Train
@@ -437,6 +472,56 @@ export function GameSession() {
 
       <p className={styles.desc}>{level.description}</p>
 
+      {isSilentLevel ? (
+        <div className={styles.silencePanel} data-active={inSilence ? 'true' : 'false'}>
+          <div className={styles.silenceBadge} aria-live="polite">
+            {phase === 'playing' ? (
+              inSilence ? (
+                <>
+                  <span className={styles.silenceDot} />
+                  Silence
+                </>
+              ) : (
+                <>
+                  <span className={styles.clickDot} />
+                  Click on
+                </>
+              )
+            ) : (
+              <>
+                Pattern: {playBars} bar{playBars === 1 ? '' : 's'} click · {muteBars} bar
+                {muteBars === 1 ? '' : 's'} silence
+              </>
+            )}
+          </div>
+          <div className={styles.timeline} aria-hidden>
+            {timeline.map((isClick, i) => (
+              <div
+                key={i}
+                className={`${styles.timelineSeg} ${isClick ? styles.segClick : styles.segMute} ${
+                  silenceUi && phase === 'playing' && silenceUi.barInCycle === i
+                    ? styles.segCurrent
+                    : ''
+                }`}
+              >
+                {isClick ? 'Click' : 'Silent'}
+              </div>
+            ))}
+          </div>
+          {phase === 'playing' ? (
+            <p className={styles.silenceHint}>
+              {inSilence
+                ? 'Metronome is muted — keep the same pulse.'
+                : 'Metronome is audible — lock in the groove.'}
+            </p>
+          ) : (
+            <p className={styles.silenceHint}>
+              Watch the timeline: gold = silence. Keep tapping through both.
+            </p>
+          )}
+        </div>
+      ) : null}
+
       {level.pattern ? (
         <PatternGrid
           pattern={level.pattern}
@@ -447,11 +532,18 @@ export function GameSession() {
           hitStates={hitStates}
         />
       ) : (
-        <div className={styles.pulseStage} data-active={phase === 'playing'}>
+        <div
+          className={styles.pulseStage}
+          data-active={phase === 'playing'}
+          data-silence={inSilence ? 'true' : 'false'}
+        >
           <div className={styles.pulseRing} />
           <div className={styles.pulseCore}>
             {beatDisplay.current}/{beatDisplay.total || level.durationBeats || 16}
           </div>
+          {isSilentLevel && phase === 'playing' ? (
+            <p className={styles.pulseCaption}>{inSilence ? 'SILENCE' : 'CLICK'}</p>
+          ) : null}
         </div>
       )}
 
@@ -462,13 +554,19 @@ export function GameSession() {
       {phase !== 'done' ? (
         <button
           type="button"
-          className={styles.tapPad}
+          className={`${styles.tapPad} ${inSilence ? styles.tapPadSilent : ''}`}
           onPointerDown={(e) => {
             e.preventDefault()
             onTap()
           }}
         >
-          {phase === 'ready' ? 'Tap to start' : phase === 'listen' ? 'Listening…' : 'Tap'}
+          {phase === 'ready'
+            ? 'Tap to start'
+            : phase === 'listen'
+              ? 'Listening…'
+              : inSilence
+                ? 'Tap through silence'
+                : 'Tap'}
         </button>
       ) : null}
 

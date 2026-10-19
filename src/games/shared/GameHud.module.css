@@ -18,6 +18,11 @@
   margin-bottom: 4px;
 }
 
+:global([data-silence='true']) .kicker {
+  color: var(--gold);
+  font-weight: 700;
+}
+
 .title {
   font-size: 1.55rem;
 }

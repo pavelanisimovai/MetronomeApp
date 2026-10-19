@@ -19,6 +19,102 @@
   line-height: 1.45;
 }
 
+.silencePanel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--stroke);
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.silencePanel[data-active='true'] {
+  background: rgba(240, 199, 94, 0.1);
+  border-color: rgba(240, 199, 94, 0.45);
+}
+
+.silenceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.silencePanel[data-active='true'] .silenceBadge {
+  color: var(--gold);
+}
+
+.silencePanel[data-active='false'] .silenceBadge {
+  color: var(--accent);
+}
+
+.clickDot,
+.silenceDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.clickDot {
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(61, 214, 198, 0.55);
+}
+
+.silenceDot {
+  background: var(--gold);
+  box-shadow: 0 0 12px rgba(240, 199, 94, 0.55);
+}
+
+.timeline {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+}
+
+.timelineSeg {
+  min-height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid transparent;
+  opacity: 0.7;
+}
+
+.segClick {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(61, 214, 198, 0.28);
+}
+
+.segMute {
+  background: var(--gold-soft);
+  color: var(--gold);
+  border-color: rgba(240, 199, 94, 0.28);
+  border-style: dashed;
+}
+
+.segCurrent {
+  opacity: 1;
+  transform: scale(1.03);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+
+.silenceHint {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
 .pulseStage {
   position: relative;
   height: 220px;
@@ -30,6 +126,14 @@
     var(--bg-elevated);
   border: 1px solid var(--stroke);
   overflow: hidden;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.pulseStage[data-silence='true'] {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(240, 199, 94, 0.18), transparent 55%),
+    #1a1620;
+  border-color: rgba(240, 199, 94, 0.4);
 }
 
 .pulseRing {
@@ -41,8 +145,17 @@
   animation: none;
 }
 
+.pulseStage[data-silence='true'] .pulseRing {
+  border-color: rgba(240, 199, 94, 0.45);
+  border-style: dashed;
+}
+
 .pulseStage[data-active='true'] .pulseRing {
   animation: pulse 0.45s ease-out;
+}
+
+.pulseStage[data-silence='true'][data-active='true'] .pulseRing {
+  animation: pulseSilent 0.55s ease-out;
 }
 
 .pulseCore {
@@ -51,6 +164,21 @@
   font-family: var(--font-display);
   font-size: 2rem;
   font-weight: 800;
+}
+
+.pulseCaption {
+  position: absolute;
+  bottom: 16px;
+  z-index: 1;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+.pulseStage[data-silence='true'] .pulseCaption {
+  color: var(--gold);
 }
 
 .countdown {
@@ -73,11 +201,22 @@
   color: var(--text);
   touch-action: manipulation;
   user-select: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .tapPad:active {
   transform: scale(0.985);
   background: rgba(61, 214, 198, 0.28);
+}
+
+.tapPadSilent {
+  background: linear-gradient(180deg, rgba(240, 199, 94, 0.24), rgba(240, 199, 94, 0.08));
+  border-color: rgba(240, 199, 94, 0.45);
+  color: var(--gold);
+}
+
+.tapPadSilent:active {
+  background: rgba(240, 199, 94, 0.3);
 }
 
 .hint {
@@ -94,5 +233,16 @@
   100% {
     transform: scale(1.15);
     opacity: 0.15;
+  }
+}
+
+@keyframes pulseSilent {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0.2;
   }
 }
