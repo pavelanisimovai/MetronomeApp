@@ -333,23 +333,27 @@ export function GameSession() {
 
     const listenMs = level.pattern.length * step * 1000
     const wallStart = performance.now()
+    let handedOff = false
+    const handoff = () => {
+      if (handedOff || phaseRef.current !== 'listen') return
+      handedOff = true
+      void beginRespond(ctx.currentTime + 0.25)
+    }
     const listenTick = () => {
-      if (phaseRef.current !== 'listen') return
+      if (phaseRef.current !== 'listen' || handedOff) return
       const audioElapsed = Math.max(0, ctx.currentTime - start)
       const wallElapsed = (performance.now() - wallStart) / 1000
       const elapsed = Math.max(audioElapsed, wallElapsed)
       const idx = Math.min(level.pattern!.length, Math.floor(elapsed / step) + 1)
       setActiveIndex(Math.max(0, idx - 1))
       if (elapsed >= level.pattern!.length * step + 0.35) {
-        void beginRespond(ctx.currentTime + 0.2)
+        handoff()
         return
       }
       rafRef.current = requestAnimationFrame(listenTick)
     }
     rafRef.current = requestAnimationFrame(listenTick)
-    later(() => {
-      if (phaseRef.current === 'listen') void beginRespond(ctx.currentTime + 0.2)
-    }, listenMs + 500)
+    later(handoff, listenMs + 450)
   }, [beginRespond, level, sound, volume])
 
   const startCountdown = useCallback(() => {

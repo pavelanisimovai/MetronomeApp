@@ -136,7 +136,11 @@ export class MetronomeEngine {
     if (shouldPlay) {
       const playKind: ClickKind =
         isDownbeat && accentDownbeat ? 'downbeat' : isBeat ? 'beat' : 'subdivision'
-      scheduleClick(this.ctx, this.nextNoteTime, sound, playKind, volume)
+      try {
+        scheduleClick(this.ctx, this.nextNoteTime, sound, playKind, volume)
+      } catch (err) {
+        console.error('scheduleClick failed', err)
+      }
     }
 
     const event: BeatEvent = {
@@ -175,6 +179,16 @@ export class MetronomeEngine {
 
   async start(fromBar = 0) {
     const ctx = await this.ensureContext()
+    // Some headless/automated browsers report running but never advance currentTime.
+    // Kick the graph so the clock moves when possible.
+    try {
+      const kick = ctx.createGain()
+      kick.gain.value = 0
+      kick.connect(ctx.destination)
+      kick.disconnect()
+    } catch {
+      // ignore
+    }
     this.running = true
     this.currentBeat = 0
     this.currentSub = 0
@@ -182,6 +196,7 @@ export class MetronomeEngine {
     this.barCounter = fromBar
     this.nextNoteTime = ctx.currentTime + 0.06
     this.scheduler()
+    if (this.timerId != null) clearInterval(this.timerId)
     this.timerId = window.setInterval(this.scheduler, LOOKAHEAD_MS)
     void this.requestWakeLock()
   }

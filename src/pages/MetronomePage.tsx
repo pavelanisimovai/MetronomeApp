@@ -51,8 +51,10 @@ export function MetronomePage() {
     const unsub = metronomeEngine.onBeat((ev) => {
       if (!ev.isBeat) return
       setBeat(ev.beatInBar)
-      if (settings.haptics) haptic(ev.isDownbeat ? 'medium' : 'light')
-      if (settings.screenFlash) {
+      if (useSettingsStore.getState().haptics) {
+        haptic(ev.isDownbeat ? 'medium' : 'light')
+      }
+      if (useSettingsStore.getState().screenFlash) {
         setFlash(true)
         window.setTimeout(() => setFlash(false), 80)
       }
@@ -62,15 +64,23 @@ export function MetronomePage() {
       metronomeEngine.stop()
       setRunning(false)
     }
-  }, [haptic, settings.haptics, settings.screenFlash])
+    // Subscribe once; read settings from the store inside the handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toggle = async () => {
-    if (metronomeEngine.isRunning()) {
+    try {
+      if (metronomeEngine.isRunning()) {
+        metronomeEngine.stop()
+        setRunning(false)
+        return
+      }
+      setRunning(true)
+      await metronomeEngine.start()
+    } catch (err) {
+      console.error('Metronome start failed', err)
       metronomeEngine.stop()
       setRunning(false)
-    } else {
-      await metronomeEngine.start()
-      setRunning(true)
     }
   }
 
