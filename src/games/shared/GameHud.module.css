@@ -27,6 +27,13 @@
   font-size: 1.55rem;
 }
 
+.diff {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .bpm {
   padding: 8px 12px;
   border-radius: 999px;

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { metronomeEngine } from '../audio/MetronomeEngine'
 import { beatDurationSec } from '../audio/timing'
-import { getLevel, levelsFor } from '../data/levels'
+import { bandFor, getLevel, levelsFor, timingEaseFor } from '../data/levels'
+import { HIT_WINDOWS_MS } from '../audio/timing'
 import { GameHud } from '../games/shared/GameHud'
 import { HitFeedback } from '../games/shared/HitFeedback'
 import { PatternGrid } from '../games/shared/PatternGrid'
@@ -148,10 +149,18 @@ export function GameSession() {
     [level, recordResult],
   )
 
+  const windowScale = level ? timingEaseFor(level) : 1
+
   const finishFromTaps = useCallback(() => {
-    const hits = matchTapsToExpected(expectedRef.current, tapsRef.current, latencyOffsetMs)
+    const hits = matchTapsToExpected(
+      expectedRef.current,
+      tapsRef.current,
+      latencyOffsetMs,
+      HIT_WINDOWS_MS.ok,
+      windowScale,
+    )
     completeSession(hits)
-  }, [completeSession, latencyOffsetMs])
+  }, [completeSession, latencyOffsetMs, windowScale])
 
   const finishFromLive = useCallback(() => {
     while (hitCursorRef.current < expectedRef.current.length) {
@@ -172,7 +181,7 @@ export function GameSession() {
       const expected = expectedRef.current
       if (!expected.length) return
 
-      const windowSec = 0.28 // matches HIT_WINDOWS_MS.ok with a little slack
+      const windowSec = (HIT_WINDOWS_MS.ok / 1000) * windowScale + 0.04
       let cursor = hitCursorRef.current
       // Find nearest remaining expected onset within the hit window
       let best = -1
@@ -204,7 +213,7 @@ export function GameSession() {
         cursor++
       }
 
-      const hit = evaluateTap(expected[best], tapSec, latencyOffsetMs)
+      const hit = evaluateTap(expected[best], tapSec, latencyOffsetMs, windowScale)
       liveHitsRef.current.push(hit)
       hitCursorRef.current = best + 1
       setLiveGrade(hit.grade)
@@ -217,7 +226,7 @@ export function GameSession() {
       )
       if (hit.grade === 'perfect' || hit.grade === 'good') haptic('light')
     },
-    [haptic, latencyOffsetMs],
+    [haptic, latencyOffsetMs, windowScale],
   )
 
   const startKeepOrSilent = useCallback(async () => {
@@ -490,6 +499,7 @@ export function GameSession() {
         combo={result?.maxCombo ?? combo}
         progress={progress}
         phaseLabel={phaseLabel}
+        difficultyLabel={`Level ${level.difficulty} · ${bandFor(level.difficulty).label}`}
       />
 
       <p className={styles.desc}>{level.description}</p>
@@ -609,7 +619,9 @@ export function GameSession() {
 
         {phase !== 'done' ? (
           <p className={styles.hint}>
-            Windows: Perfect ≤55ms · Good ≤120ms · OK ≤250ms. Adjust latency in Settings if needed.
+            {level.difficulty <= 2
+              ? 'Take your time — wide timing windows for young players. Tap with the beat!'
+              : 'Windows scale with difficulty. Adjust latency in Settings if taps feel early/late.'}
           </p>
         ) : (
           <div className={styles.hintSpacer} aria-hidden />

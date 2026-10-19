@@ -1,6 +1,6 @@
 import { chromium } from 'playwright'
 
-const url = process.env.APP_URL || 'http://127.0.0.1:4173/play/keep-1'
+const url = process.env.APP_URL || 'http://127.0.0.1:4173/play/keep-3a'
 
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext()

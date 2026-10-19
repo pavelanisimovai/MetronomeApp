@@ -40,9 +40,10 @@ export function evaluateTap(
   expectedSec: number,
   tapSec: number,
   offsetMs: number,
+  windowScale = 1,
 ): HitRecord {
   const errorMs = (tapSec - expectedSec) * 1000
-  const grade = gradeHit(errorMs, offsetMs)
+  const grade = gradeHit(errorMs, offsetMs, windowScale)
   const adjusted = errorMs - offsetMs
   let earlyLate: HitRecord['earlyLate'] = 'on'
   if (grade === 'miss') earlyLate = 'miss'
@@ -97,9 +98,11 @@ export function matchTapsToExpected(
   taps: number[],
   offsetMs: number,
   windowMs = 220,
+  windowScale = 1,
 ): HitRecord[] {
   const used = new Set<number>()
   const hits: HitRecord[] = []
+  const scaledWindow = windowMs * Math.max(0.5, windowScale)
 
   for (const exp of expected) {
     let bestIdx = -1
@@ -112,9 +115,9 @@ export function matchTapsToExpected(
         bestIdx = i
       }
     }
-    if (bestIdx >= 0 && bestAbs <= windowMs) {
+    if (bestIdx >= 0 && bestAbs <= scaledWindow) {
       used.add(bestIdx)
-      hits.push(evaluateTap(exp, taps[bestIdx], offsetMs))
+      hits.push(evaluateTap(exp, taps[bestIdx], offsetMs, windowScale))
     } else {
       hits.push({
         expectedSec: exp,

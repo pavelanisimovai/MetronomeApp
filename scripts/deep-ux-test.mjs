@@ -47,6 +47,10 @@ await go('/')
 note(await page.getByText('MyMetronome').count() > 0, 'Train hub shows brand')
 note(await page.getByText('Daily drill').count() > 0, 'Daily drill section present')
 note(await page.getByRole('link', { name: /Continue/ }).count() > 0, 'Continue CTA present')
+note(await page.getByText('Tiny Steps').count() > 0, 'Difficulty band Tiny Steps present')
+note(await page.getByText('Rhythm Pro').count() > 0, 'Difficulty band Rhythm Pro present')
+note(await page.getByText('Level 1').count() > 0, 'Level 1 badge present')
+note(await page.getByText('Level 5').count() > 0, 'Level 5 badge present')
 await page.screenshot({ path: `${outDir}/deep_train.png` })
 
 // --- Metronome ---
@@ -64,7 +68,7 @@ note(await page.getByRole('button', { name: 'Start' }).count() > 0, 'Metronome S
 await page.screenshot({ path: `${outDir}/deep_metronome.png` })
 
 // --- Countdown must NOT move tap button ---
-await go('/play/keep-1')
+await go('/play/keep-1a')
 const tap = page.getByRole('button', { name: 'Tap to start' })
 const readyBox = await tap.boundingBox()
 await tap.click()
@@ -100,7 +104,8 @@ note(true, 'Keep the Beat completes')
 await page.screenshot({ path: `${outDir}/deep_keep_done.png` })
 
 // --- Echo ---
-await go('/play/echo-1')
+// Echo level 3 (Steady Groove) — 4 quarters @ 80 BPM matches 750ms tap spacing
+await go('/play/echo-3a')
 await page.getByRole('button', { name: 'Tap to start' }).click()
 await page.waitForSelector('text=Your turn', { timeout: 20000 })
 // Wait until expected beats are armed (after paint + gap)
@@ -121,16 +126,37 @@ const echoScore = Number(echoText.match(/SCORE\s*(\d+)/i)?.[1] || 0)
 note(echoScore > 0 || echoAcc > 0, `Echo scored (score=${echoScore}, acc=${echoAcc})`)
 await page.screenshot({ path: `${outDir}/deep_echo_done.png` })
 
-// --- Memory ---
-await go('/play/memory-1')
+// Kid-easy echo (level 1) — two slow taps
+await go('/play/echo-1a')
 await page.getByRole('button', { name: 'Tap to start' }).click()
 await page.waitForSelector('text=Your turn', { timeout: 20000 })
 await page.waitForTimeout(80)
 await page.evaluate(async () => {
   const btn = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Tap')
   const start = performance.now() + 500
-  for (let i = 0; i < 4; i++) {
-    const target = start + i * 750
+  for (let i = 0; i < 2; i++) {
+    const target = start + i * 1200
+    while (performance.now() < target) await new Promise((r) => requestAnimationFrame(r))
+    btn?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
+  }
+})
+await page.waitForSelector('text=Level complete', { timeout: 15000 })
+const kidEcho = await page.evaluate(() => document.body.innerText)
+const kidAcc = Number(kidEcho.match(/ACCURACY\s*(\d+)%/i)?.[1] || 0)
+note(kidAcc > 0, `Kid echo-1a scored (acc=${kidAcc})`)
+await page.screenshot({ path: `${outDir}/deep_echo_kid.png` })
+
+// --- Memory ---
+await go('/play/memory-3a')
+await page.getByRole('button', { name: 'Tap to start' }).click()
+await page.waitForSelector('text=Your turn', { timeout: 20000 })
+await page.waitForTimeout(80)
+await page.evaluate(async () => {
+  // memory-3a pattern: hit, hit, rest, hit @ 80 BPM
+  const btn = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Tap')
+  const start = performance.now() + 500
+  for (const step of [0, 1, 3]) {
+    const target = start + step * 750
     while (performance.now() < target) await new Promise((r) => requestAnimationFrame(r))
     btn?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
   }
@@ -140,7 +166,7 @@ note(true, 'Memory level completes')
 await page.screenshot({ path: `${outDir}/deep_memory_done.png` })
 
 // --- Silent boxes + phase ---
-await go('/play/silent-1')
+await go('/play/silent-1a')
 note(await page.getByText('Sound', { exact: true }).count() > 0, 'Silent level legend Sound')
 note(await page.getByText('Silence', { exact: true }).count() > 0, 'Silent level legend Silence')
 const boxCount = await page.locator('[class*="boxTrack"] > *').count()

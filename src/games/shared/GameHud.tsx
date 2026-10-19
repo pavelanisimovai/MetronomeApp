@@ -7,15 +7,25 @@ type Props = {
   combo: number
   progress: number
   phaseLabel?: string
+  difficultyLabel?: string
 }
 
-export function GameHud({ title, bpm, score, combo, progress, phaseLabel }: Props) {
+export function GameHud({
+  title,
+  bpm,
+  score,
+  combo,
+  progress,
+  phaseLabel,
+  difficultyLabel,
+}: Props) {
   return (
     <header className={styles.hud}>
       <div className={styles.top}>
         <div>
           <p className={styles.kicker}>{phaseLabel ?? 'Level'}</p>
           <h1 className={styles.title}>{title}</h1>
+          {difficultyLabel ? <p className={styles.diff}>{difficultyLabel}</p> : null}
         </div>
         <div className={styles.bpm}>{bpm} BPM</div>
       </div>

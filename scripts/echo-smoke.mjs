@@ -1,6 +1,6 @@
 import { chromium } from 'playwright'
 
-const url = `http://127.0.0.1:4173/play/echo-1?t=${Date.now()}`
+const url = `http://127.0.0.1:4173/play/echo-1a?t=${Date.now()}`
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext()
 await context.addInitScript(() => {

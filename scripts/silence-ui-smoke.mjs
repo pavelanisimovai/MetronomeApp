@@ -9,7 +9,7 @@ const browser = await chromium.launch({
   args: ['--autoplay-policy=no-user-gesture-required'],
 })
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
-await page.goto(`http://127.0.0.1:4173/play/silent-4?nosw=1&t=${Date.now()}`, {
+await page.goto(`http://127.0.0.1:4173/play/silent-4a?nosw=1&t=${Date.now()}`, {
   waitUntil: 'networkidle',
 })
 await page.evaluate(async () => {

@@ -7,11 +7,12 @@ export const HIT_WINDOWS_MS = {
   ok: 250,
 } as const
 
-export function gradeHit(errorMs: number, offsetMs = 0): HitGrade {
+export function gradeHit(errorMs: number, offsetMs = 0, windowScale = 1): HitGrade {
   const abs = Math.abs(errorMs - offsetMs)
-  if (abs <= HIT_WINDOWS_MS.perfect) return 'perfect'
-  if (abs <= HIT_WINDOWS_MS.good) return 'good'
-  if (abs <= HIT_WINDOWS_MS.ok) return 'ok'
+  const scale = Math.max(0.5, windowScale)
+  if (abs <= HIT_WINDOWS_MS.perfect * scale) return 'perfect'
+  if (abs <= HIT_WINDOWS_MS.good * scale) return 'good'
+  if (abs <= HIT_WINDOWS_MS.ok * scale) return 'ok'
   return 'miss'
 }
 

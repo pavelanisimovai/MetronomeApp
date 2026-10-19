@@ -42,7 +42,7 @@ await page.screenshot({ path: `${outDir}/demo_metronome.png` })
 await page.getByRole('button', { name: 'Stop' }).click()
 await page.waitForTimeout(400)
 
-await page.goto(`${base}/play/echo-1?${bust()}`, { waitUntil: 'networkidle' })
+await page.goto(`${base}/play/echo-3a?${bust()}`, { waitUntil: 'networkidle' })
 await page.waitForSelector('text=Tap to start')
 await page.screenshot({ path: `${outDir}/demo_echo_ready.png` })
 await page.getByRole('button', { name: 'Tap to start' }).click()
