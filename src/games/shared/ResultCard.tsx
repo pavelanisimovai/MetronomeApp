@@ -13,9 +13,13 @@ export function ResultCard({ score, levelId, nextLevelId, onRetry }: Props) {
   return (
     <div className={styles.card}>
       <p className={styles.kicker}>Level complete</p>
-      <h2 className={styles.title}>
-        {'★'.repeat(score.stars)}
-        {'☆'.repeat(3 - score.stars)}
+      <h2 className={styles.title} aria-label={`${score.stars} of 3 stars`}>
+        {score.stars > 0 ? '★'.repeat(score.stars) : '—'}
+        {score.stars > 0 ? (
+          <span className={styles.emptyStars}>{'☆'.repeat(3 - score.stars)}</span>
+        ) : (
+          <span className={styles.emptyStars}> no stars</span>
+        )}
       </h2>
       <div className={styles.grid}>
         <div>

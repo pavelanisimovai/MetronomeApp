@@ -22,6 +22,12 @@
   letter-spacing: 0.12em;
 }
 
+.emptyStars {
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  font-size: 1.1rem;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

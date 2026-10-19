@@ -43,6 +43,7 @@ export function GameSession() {
   const [hitStates, setHitStates] = useState<
     Array<'pending' | 'perfect' | 'good' | 'ok' | 'miss' | 'rest'>
   >([])
+  const [beatDisplay, setBeatDisplay] = useState({ current: 0, total: 0 })
 
   const expectedRef = useRef<number[]>([])
   const tapsRef = useRef<number[]>([])
@@ -51,6 +52,7 @@ export function GameSession() {
   const phaseRef = useRef<Phase>('ready')
   const endedRef = useRef(false)
   const timersRef = useRef<number[]>([])
+  const rafRef = useRef<number | null>(null)
 
   const nextLevelId = useMemo(() => {
     if (!level) return null
@@ -62,6 +64,10 @@ export function GameSession() {
   const clearTimers = () => {
     for (const id of timersRef.current) window.clearTimeout(id)
     timersRef.current = []
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
   }
 
   const later = (fn: () => void, ms: number) => {
@@ -86,6 +92,7 @@ export function GameSession() {
     setActiveIndex(null)
     setResult(null)
     setHitStates([])
+    setBeatDisplay({ current: 0, total: 0 })
     expectedRef.current = []
     tapsRef.current = []
     hitCursorRef.current = 0
@@ -101,36 +108,23 @@ export function GameSession() {
     }
   }, [levelId, resetSession])
 
-  const buildKeepExpected = useCallback(
-    (start: number) => {
-      if (!level) return []
-      const step = beatDurationSec(level.bpm) / level.subdivision
-      const count = level.durationBeats ?? level.bars * level.beatsPerBar * level.subdivision
-      return Array.from({ length: count }, (_, i) => start + i * step)
-    },
-    [level],
-  )
-
-  const buildPatternExpected = useCallback(
-    (start: number) => {
-      if (!level?.pattern) return []
-      const step = beatDurationSec(level.bpm) / level.subdivision
-      return level.pattern
-        .map((v, i) => (v ? start + i * step : -1))
-        .filter((t) => t >= 0)
-    },
-    [level],
-  )
-
   const completeSession = useCallback(
     (hits: HitRecord[]) => {
       if (!level || endedRef.current) return
       endedRef.current = true
+      clearTimers()
       metronomeEngine.stop()
       const session = finalizeScore(hits)
       setResult(session)
+      phaseRef.current = 'done'
       setPhase('done')
       setProgress(1)
+      if (expectedRef.current.length) {
+        setBeatDisplay({
+          current: expectedRef.current.length,
+          total: expectedRef.current.length,
+        })
+      }
       recordResult(level.id, session.score, session.accuracy, session.stars)
       if (level.pattern) {
         let expIdx = 0
@@ -167,6 +161,8 @@ export function GameSession() {
   const registerLiveTap = useCallback(
     (tapSec: number) => {
       const expected = expectedRef.current
+      if (!expected.length) return
+
       let cursor = hitCursorRef.current
       while (cursor < expected.length && expected[cursor] < tapSec - 0.18) {
         liveHitsRef.current.push({
@@ -178,10 +174,8 @@ export function GameSession() {
         })
         cursor++
       }
-      if (cursor >= expected.length) {
-        hitCursorRef.current = cursor
-        return
-      }
+      hitCursorRef.current = cursor
+      if (cursor >= expected.length) return
       if (tapSec < expected[cursor] - 0.16) return
 
       const hit = evaluateTap(expected[cursor], tapSec, latencyOffsetMs)
@@ -195,17 +189,14 @@ export function GameSession() {
           s +
           (hit.grade === 'perfect' ? 100 : hit.grade === 'good' ? 70 : hit.grade === 'ok' ? 40 : 0),
       )
-      setProgress(hitCursorRef.current / expected.length)
       if (hit.grade === 'perfect' || hit.grade === 'good') haptic('light')
-      if (hitCursorRef.current >= expected.length) {
-        later(() => finishFromLive(), 180)
-      }
     },
-    [finishFromLive, haptic, latencyOffsetMs],
+    [haptic, latencyOffsetMs],
   )
 
   const startKeepOrSilent = useCallback(async () => {
     if (!level) return
+    endedRef.current = false
     await metronomeEngine.ensureContext()
     metronomeEngine.setConfig({
       bpm: level.bpm,
@@ -220,37 +211,64 @@ export function GameSession() {
           ? { play: level.playBars ?? 1, mute: level.muteBars ?? 1 }
           : null,
     })
+
     const ctx = metronomeEngine.getContext()!
-    const start = ctx.currentTime + 0.08
-    expectedRef.current = buildKeepExpected(start)
+    const step = beatDurationSec(level.bpm) / level.subdivision
+    const target =
+      level.durationBeats ?? level.bars * level.beatsPerBar * level.subdivision
+    // Must match MetronomeEngine.start() lead-in (0.06s)
+    const startAt = ctx.currentTime + 0.06
+    const expected = Array.from({ length: target }, (_, i) => startAt + i * step)
+    expectedRef.current = expected
     tapsRef.current = []
     hitCursorRef.current = 0
     liveHitsRef.current = []
+    phaseRef.current = 'playing'
     setPhase('playing')
+    setProgress(0)
+    setBeatDisplay({ current: 0, total: target })
+
     await metronomeEngine.start(0)
 
-    const unsub = metronomeEngine.onBeat((ev) => {
-      const step = beatDurationSec(level.bpm) / level.subdivision
-      const idx = Math.round((ev.audioTime - start) / step)
-      setActiveIndex(idx)
-      setProgress(Math.min(1, (idx + 1) / Math.max(1, expectedRef.current.length)))
-    })
+    const wallStart = performance.now()
+    const durationMs = step * target * 1000
 
-    const last = expectedRef.current[expectedRef.current.length - 1] ?? start
+    const tick = () => {
+      if (endedRef.current || phaseRef.current !== 'playing') return
+      const audioNow = metronomeEngine.currentTime
+      const wallElapsed = performance.now() - wallStart
+      // Prefer audio clock; fall back to wall clock if AudioContext stalls
+      const audioElapsed = Math.max(0, audioNow - startAt)
+      const elapsedSec = Math.max(audioElapsed, wallElapsed / 1000)
+      const idx = Math.min(target, Math.floor(elapsedSec / step) + (elapsedSec > 0 ? 1 : 0))
+      setBeatDisplay({ current: Math.min(idx, target), total: target })
+      setActiveIndex(Math.max(0, idx - 1))
+      setProgress(Math.min(1, idx / target))
+      if (elapsedSec >= step * target + 0.28 || wallElapsed >= durationMs + 400) {
+        finishFromLive()
+        return
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    // Hard safety end even if rAF is throttled
     later(() => {
-      unsub()
-      finishFromLive()
-    }, (last - ctx.currentTime) * 1000 + 420)
-  }, [buildKeepExpected, finishFromLive, level, sound, volume])
+      if (!endedRef.current) finishFromLive()
+    }, durationMs + 900)
+  }, [finishFromLive, level, sound, volume])
 
   const beginRespond = useCallback(
     async (respondStart: number) => {
       if (!level?.pattern) return
-      expectedRef.current = buildPatternExpected(respondStart)
+      const step = beatDurationSec(level.bpm) / level.subdivision
+      expectedRef.current = level.pattern
+        .map((v, i) => (v ? respondStart + i * step : -1))
+        .filter((t) => t >= 0)
       tapsRef.current = []
       hitCursorRef.current = 0
       liveHitsRef.current = []
       setActiveIndex(null)
+      phaseRef.current = 'respond'
       setPhase('respond')
       if (level.game === 'memory') {
         setHitStates(level.pattern.map(() => 'pending'))
@@ -258,7 +276,6 @@ export function GameSession() {
 
       await metronomeEngine.ensureContext()
       const ctx = metronomeEngine.getContext()!
-      const step = beatDurationSec(level.bpm) / level.subdivision
       const total = level.pattern.length
 
       for (let i = 0; i < total; i++) {
@@ -269,19 +286,30 @@ export function GameSession() {
         } else if (level.game === 'memory' && isDownbeat) {
           void metronomeEngine.playClickAt(t, 'downbeat')
         }
-        later(() => {
-          if (phaseRef.current === 'respond') {
-            setActiveIndex(i)
-            setProgress((i + 1) / total)
-          }
-        }, Math.max(0, (t - ctx.currentTime) * 1000))
       }
 
+      const wallStart = performance.now()
+      const respondMs = total * step * 1000
+      const respondTick = () => {
+        if (endedRef.current || phaseRef.current !== 'respond') return
+        const audioElapsed = Math.max(0, ctx.currentTime - respondStart)
+        const wallElapsed = (performance.now() - wallStart) / 1000
+        const elapsed = Math.max(audioElapsed, wallElapsed)
+        const idx = Math.min(total, Math.floor(elapsed / step))
+        setActiveIndex(Math.max(0, idx - 1))
+        setProgress(idx / total)
+        if (elapsed >= total * step + 0.3) {
+          finishFromTaps()
+          return
+        }
+        rafRef.current = requestAnimationFrame(respondTick)
+      }
+      rafRef.current = requestAnimationFrame(respondTick)
       later(() => {
-        if (phaseRef.current === 'respond') finishFromTaps()
-      }, (respondStart + total * step - ctx.currentTime) * 1000 + 300)
+        if (phaseRef.current === 'respond' && !endedRef.current) finishFromTaps()
+      }, respondMs + 700)
     },
-    [buildPatternExpected, finishFromTaps, level],
+    [finishFromTaps, level],
   )
 
   const playPatternListen = useCallback(async () => {
@@ -290,56 +318,77 @@ export function GameSession() {
     metronomeEngine.setConfig({ sound, volume })
     const ctx = metronomeEngine.getContext()!
     const step = beatDurationSec(level.bpm) / level.subdivision
-    const start = ctx.currentTime + 0.12
+    const start = ctx.currentTime + 0.15
+    phaseRef.current = 'listen'
     setPhase('listen')
     setHitStates(level.pattern.map((s) => (s ? 'pending' : 'rest')))
 
     level.pattern.forEach((stepVal, i) => {
       const t = start + i * step
-      later(() => setActiveIndex(i), (t - ctx.currentTime) * 1000)
       if (stepVal) {
         const kind = i % (level.beatsPerBar * level.subdivision) === 0 ? 'downbeat' : 'beat'
         void metronomeEngine.playClickAt(t, kind)
       }
     })
 
+    const listenMs = level.pattern.length * step * 1000
+    const wallStart = performance.now()
+    const listenTick = () => {
+      if (phaseRef.current !== 'listen') return
+      const audioElapsed = Math.max(0, ctx.currentTime - start)
+      const wallElapsed = (performance.now() - wallStart) / 1000
+      const elapsed = Math.max(audioElapsed, wallElapsed)
+      const idx = Math.min(level.pattern!.length, Math.floor(elapsed / step) + 1)
+      setActiveIndex(Math.max(0, idx - 1))
+      if (elapsed >= level.pattern!.length * step + 0.35) {
+        void beginRespond(ctx.currentTime + 0.2)
+        return
+      }
+      rafRef.current = requestAnimationFrame(listenTick)
+    }
+    rafRef.current = requestAnimationFrame(listenTick)
     later(() => {
-      void beginRespond(start + level.pattern!.length * step + 0.4)
-    }, level.pattern.length * step * 1000 + 380)
+      if (phaseRef.current === 'listen') void beginRespond(ctx.currentTime + 0.2)
+    }, listenMs + 500)
   }, [beginRespond, level, sound, volume])
 
   const startCountdown = useCallback(() => {
+    if (phaseRef.current !== 'ready') return
+    phaseRef.current = 'countdown'
     setPhase('countdown')
     setCountdown(3)
     let n = 3
     const tick = () => {
       n -= 1
-      setCountdown(n)
+      setCountdown(Math.max(0, n))
       if (n <= 0) {
         if (level?.game === 'keep' || level?.game === 'silent') void startKeepOrSilent()
         else void playPatternListen()
       } else {
-        later(tick, 700)
+        later(tick, 650)
       }
     }
-    later(tick, 700)
+    later(tick, 650)
   }, [level, playPatternListen, startKeepOrSilent])
 
   const onTap = useCallback(() => {
     if (!level) return
-    if (phase === 'ready') {
+    if (phaseRef.current === 'ready') {
       startCountdown()
       return
     }
-    if (phase !== 'playing' && phase !== 'respond') return
+    if (phaseRef.current !== 'playing' && phaseRef.current !== 'respond') return
     const ctx = metronomeEngine.getContext()
     if (!ctx) return
     const tapSec = ctx.currentTime
     tapsRef.current.push(tapSec)
     registerLiveTap(tapSec)
-  }, [level, phase, registerLiveTap, startCountdown])
+  }, [level, registerLiveTap, startCountdown])
 
-  useKeyboardTap(phase === 'playing' || phase === 'respond' || phase === 'ready', onTap)
+  useKeyboardTap(
+    phase === 'playing' || phase === 'respond' || phase === 'ready',
+    onTap,
+  )
 
   if (!level) {
     return (
@@ -397,7 +446,7 @@ export function GameSession() {
         <div className={styles.pulseStage} data-active={phase === 'playing'}>
           <div className={styles.pulseRing} />
           <div className={styles.pulseCore}>
-            {level.beatsPerBar}/{4}
+            {beatDisplay.current}/{beatDisplay.total || level.durationBeats || 16}
           </div>
         </div>
       )}
