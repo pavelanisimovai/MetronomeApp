@@ -2,7 +2,6 @@ import { chromium } from 'playwright'
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { allLevels } from '../src/data/levels/index.ts'
-import { createTimeline } from '../src/games/session/timeline.ts'
 
 const base = process.env.APP_URL || 'http://127.0.0.1:4173'
 const executablePath =
@@ -61,25 +60,49 @@ async function quick(page) {
     .getByRole('button', { name: 'Start with a count-in', exact: true })
     .click()
 }
-async function tapRound(page, id, mode = 'attempt', offset = 0) {
-  await page.waitForFunction(() => window.__audio.length > 0)
-  const origin = await page.evaluate(() => window.__audio[0].start)
+async function tapRound(page, id) {
+  await page
+    .getByRole('button', { name: 'Tap to start', exact: true })
+    .waitFor({ timeout: 20000 })
   const level = allLevels.find((l) => l.id === id)
-  const timeline = createTimeline(level, mode, origin)
+  const step = 60 / level.bpm / level.subdivision
+  const pattern =
+    level.pattern ??
+    Array(
+      level.durationBeats ?? level.bars * level.beatsPerBar * level.subdivision,
+    ).fill(1)
+  const targetSteps = pattern.flatMap((hit, index) => (hit ? [index] : []))
   const tapped = await page.evaluate(
-    async (targets) => {
-      let count = 0
+    async ({ targetSteps, step }) => {
+      const clock = () => {
+        const ctx = window.__ctx
+        const stamp = ctx.getOutputTimestamp?.()
+        return stamp?.contextTime > 0 && stamp.performanceTime > 0
+          ? stamp.contextTime +
+              (performance.now() - stamp.performanceTime) / 1000
+          : ctx.currentTime
+      }
+      const firstTap = clock()
+      ;[...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Tap to start')
+        .click()
+      let count = 1
+      await new Promise(requestAnimationFrame)
       window.__tapHighlights = []
+      window.__tapHighlights.push(
+        Number(
+          document
+            .querySelector('[data-step][data-active="true"]')
+            ?.getAttribute('data-step'),
+        ),
+      )
       window.__silenceSeen = false
+      const targets = targetSteps
+        .slice(1)
+        .map((index) => firstTap + index * step + 0.025)
       const deadline = performance.now() + 40000
       while (targets.length && performance.now() < deadline) {
-        const ctx = window.__ctx,
-          stamp = ctx.getOutputTimestamp?.()
-        const now =
-          stamp?.contextTime > 0 && stamp.performanceTime > 0
-            ? stamp.contextTime +
-              (performance.now() - stamp.performanceTime) / 1000
-            : ctx.currentTime
+        const now = clock()
         if (document.querySelector('[data-silence="true"]'))
           window.__silenceSeen = true
         if (now >= targets[0]) {
@@ -103,17 +126,13 @@ async function tapRound(page, id, mode = 'attempt', offset = 0) {
       }
       return count
     },
-    timeline.expected.map((t) => t + offset + 0.025),
+    { targetSteps, step },
   )
-  assert.equal(
-    tapped,
-    timeline.expected.length,
-    `${id}: all target taps dispatched`,
-  )
+  assert.equal(tapped, targetSteps.length, `${id}: all target taps dispatched`)
   if (level.game === 'keep' || level.game === 'echo')
     assert.deepEqual(
       await page.evaluate(() => window.__tapHighlights),
-      timeline.pattern.flatMap((v, i) => (v ? [i] : [])),
+      targetSteps,
       `${id}: visible beat matches audio`,
     )
   if (level.game === 'silent')
@@ -280,10 +299,13 @@ try {
       await countPadLocator.waitFor({ timeout: 12000 })
       const countPad = await countPadLocator.boundingBox()
       await page
-        .getByRole('button', { name: 'Tap', exact: true })
+        .getByRole('button', { name: 'Tap to start', exact: true })
         .waitFor({ timeout: 12000 })
-      const pad = page.getByRole('button', { name: 'Tap', exact: true })
-      const bounds = await pad.boundingBox()
+      const startPad = page.getByRole('button', {
+        name: 'Tap to start',
+        exact: true,
+      })
+      const bounds = await startPad.boundingBox()
       assert.ok(
         Math.abs(bounds.y - countPad.y) < 4,
         `pad moves: ${countPad.y} to ${bounds.y}`,
@@ -292,7 +314,9 @@ try {
         bounds.y >= 0 && bounds.y + bounds.height <= 568,
         JSON.stringify(bounds),
       )
-      await pad.click()
+      await startPad.click()
+      const pad = page.getByRole('button', { name: 'Tap', exact: true })
+      assert.ok(Math.abs((await pad.boundingBox()).y - bounds.y) < 4)
       await page.waitForTimeout(1154)
       await pad.evaluate((b) => b.click())
       await page.waitForTimeout(1154)
@@ -354,8 +378,8 @@ try {
       await go(page, '/play/echo-1b')
       await quick(page)
       await page
-        .getByRole('button', { name: 'Tap', exact: true })
-        .waitFor({ timeout: 20000 })
+        .getByRole('button', { name: 'Tap to start', exact: true })
+        .click({ timeout: 20000 })
       await page.evaluate(() => {
         window.__spam = setInterval(() => {
           const b = [...document.querySelectorAll('button')].find(
@@ -383,17 +407,23 @@ try {
     },
   )
   await check(
-    'no-input rounds do not create progress or offer automatic advancement',
+    'waiting repeats the example without scores; a late first tap starts a full round',
     async () => {
       const { context, page } = await fresh()
       await go(page, '/play/keep-1a')
       await quick(page)
       await page
-        .getByRole('region', { name: 'Round result' })
+        .getByRole('button', { name: 'Tap to start', exact: true })
         .waitFor({ timeout: 15000 })
+      const sources = await page.evaluate(() => window.__audio.length)
+      await page.waitForTimeout(10500)
+      assert.equal(await page.locator('[data-phase="waiting"]').count(), 1)
       assert.equal(
-        await page.getByText('No taps recorded', { exact: true }).count(),
-        1,
+        await page.getByRole('region', { name: 'Round result' }).count(),
+        0,
+      )
+      assert.ok(
+        (await page.evaluate(() => window.__audio.length)) > sources + 4,
       )
       assert.equal(
         await page
@@ -409,6 +439,99 @@ try {
           ).state.levels,
       )
       assert.deepEqual(recorded, {})
+      await tapRound(page, 'keep-1a')
+      await page.getByText('You matched 4 of 4 taps', { exact: true }).waitFor()
+      assert.equal(
+        await page.getByLabel('3 of 3 stars', { exact: true }).count(),
+        1,
+      )
+      await context.close()
+    },
+  )
+  await check(
+    'keyboard first tap cancels every preview sound and counts exactly once in Silent Recall',
+    async () => {
+      const { context, page, errors } = await fresh()
+      await go(page, '/play/memory-3b')
+      await quick(page)
+      const firstTap = page.getByRole('button', {
+        name: 'Tap to start',
+        exact: true,
+      })
+      await firstTap.waitFor({ timeout: 15000 })
+      const initialSources = await page.evaluate(() => window.__audio.length)
+      await page.waitForTimeout(6500)
+      assert.ok(
+        (await page.evaluate(() => window.__audio.length)) > initialSources,
+      )
+      assert.equal(await page.locator('[data-phase="waiting"]').count(), 1)
+      assert.ok((await page.locator('[data-step]').count()) > 0)
+      await firstTap.focus()
+      await page.keyboard.press('Space')
+      await page.getByRole('button', { name: 'Tap', exact: true }).waitFor()
+      assert.equal(await page.locator('[data-step]').count(), 0)
+      assert.equal(
+        await page.evaluate(
+          () =>
+            window.__audio.filter(
+              (source) =>
+                source.start > window.__ctx.currentTime &&
+                source.stops.every((stop) => stop > source.start),
+            ).length,
+        ),
+        0,
+      )
+      const sourceCount = await page.evaluate(() => window.__audio.length)
+      await page
+        .getByRole('region', { name: 'Round result' })
+        .waitFor({ timeout: 6000 })
+      await page.getByText('You matched 1 of 2 taps', { exact: true }).waitFor()
+      assert.equal(
+        await page.evaluate(() => window.__audio.length),
+        sourceCount,
+      )
+      await page.getByText('See timing details', { exact: true }).click()
+      assert.equal(
+        await page
+          .getByText('Extra taps', { exact: true })
+          .locator('..')
+          .locator('strong')
+          .innerText(),
+        '0',
+      )
+      await page.getByRole('button', { name: 'Try again', exact: true }).click()
+      await firstTap.waitFor({ timeout: 15000 })
+      await page.getByRole('button', { name: 'Pause', exact: true }).click()
+      await page
+        .getByRole('button', { name: 'Restart round', exact: true })
+        .waitFor()
+      await page
+        .getByRole('button', { name: 'Restart round', exact: true })
+        .click()
+      await firstTap.waitFor({ timeout: 15000 })
+      assert.ok((await page.locator('[data-step]').count()) > 0)
+      assert.equal(
+        await page.evaluate(
+          () =>
+            JSON.parse(localStorage.getItem('mymetronome-progress')).state
+              .levels['memory-3b'].plays,
+        ),
+        1,
+      )
+      await page.getByRole('link', { name: '← Learn', exact: true }).click()
+      await page.getByRole('link', { name: /Your next lesson/ }).waitFor()
+      assert.equal(
+        await page.evaluate(
+          () =>
+            window.__audio.filter(
+              (source) =>
+                source.start > window.__ctx.currentTime &&
+                source.stops.every((stop) => stop > source.start),
+            ).length,
+        ),
+        0,
+      )
+      assert.deepEqual(errors, [])
       await context.close()
     },
   )
@@ -419,8 +542,12 @@ try {
       await go(page, '/play/memory-3a')
       await quick(page)
       await page
-        .getByRole('button', { name: 'Tap', exact: true })
+        .getByRole('button', { name: 'Tap to start', exact: true })
         .waitFor({ timeout: 20000 })
+      assert.ok((await page.locator('[data-step]').count()) > 0)
+      await page
+        .getByRole('button', { name: 'Tap to start', exact: true })
+        .click()
       assert.equal(await page.locator('[data-step]').count(), 0)
       assert.equal(
         await page.getByRole('img', { name: /Pattern hidden/ }).count(),
@@ -621,7 +748,7 @@ try {
       await go(page, '/play/keep-1a')
       await quick(page)
       await page
-        .getByRole('button', { name: 'Tap', exact: true })
+        .getByRole('button', { name: 'Tap to start', exact: true })
         .waitFor({ timeout: 10000 })
       await page.evaluate(() => window.__ctx.suspend())
       await page

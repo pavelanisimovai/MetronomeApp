@@ -1,11 +1,11 @@
 # MyMetronome
 
-Free, installable rhythm practice for first-time learners and experienced musicians. Listen to an example, practise without stars, then try it yourself after a musical count-in.
+Free, installable rhythm practice for first-time learners and experienced musicians. Listen to an example, practise without stars, then try it yourself. The count-in sets the tempo; your first tap starts the round.
 
 ## Learning and practice
 
 - **Learn:** a recommended path through steady beat, copying, memory and silence. All 40 lessons are also available in the exercise library.
-- **Guide me / Quick start:** choose how much preparation you want. Examples can be replayed; practice rounds do not affect scores.
+- **Guide me / Quick start:** choose how much preparation you want. After the count-in, the example repeats for as long as you need, with no score or deadline. The first tap counts as beat one and starts a full round. Practice rounds do not affect scores.
 - **Three-lesson sessions:** pause between lessons, resume within the browser tab, and finish with a session summary.
 - **Fair feedback:** extra taps and rests count. Live feedback and results use the same chronological matcher. Three stars require at least 92% and no extra taps.
 - **Metronome:** 30–250 BPM, tap tempo, meters, subdivisions and synthesized click sounds.
@@ -56,7 +56,9 @@ For walkthrough screenshots: `node scripts/demo-playwright.mjs`. Output defaults
 
 ## Timing and saved data
 
-Exercises use one musical timeline for examples, count-ins, visual positions and expected taps. Input and visuals use `AudioContext.getOutputTimestamp()` when available, otherwise the audio context clock. Calibration can compensate for consistent device/tapping delay; it cannot guarantee physical-device latency accuracy.
+Exercises wait after the count-in while the example loops. No response clicks, misses, results or achievement records start automatically. The first tap cancels the example and anchors the response to its first expected note; subsequent intervals are graded at the lesson's tempo, including rests and extra taps. Memory patterns hide only when that tap starts the response. Restarting returns to unscored listening.
+
+Input and visuals use `AudioContext.getOutputTimestamp()` when available, otherwise the audio context clock. The response anchor subtracts the configured latency offset; grading and response visuals use the same corrected reference, so calibration does not penalize the first tap or shorten the response. Calibration can compensate for consistent device/tapping delay; it cannot guarantee physical-device latency accuracy.
 
 A session owns and cancels all scheduled sound sources on exit or pause. Backgrounded or interrupted lessons restart with a fresh count-in and no penalty. Memory assistance is explicit in level data; the Silent Recall lesson has no answer clicks.
 

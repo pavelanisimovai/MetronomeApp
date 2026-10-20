@@ -13,6 +13,7 @@ import { useProgressStore } from '../../store/progressStore'
 import { scoreSession, type SessionScore } from '../shared/scoring'
 import {
   audibleTime,
+  anchorToFirstTap,
   createTimeline,
   positionAt,
   type RunMode,
@@ -24,6 +25,7 @@ export type ExercisePhase =
   | 'preparing'
   | 'listen'
   | 'countin'
+  | 'waiting'
   | 'play'
   | 'heard'
   | 'practised'
@@ -83,6 +85,7 @@ export function useExercise(level: LevelDef) {
       setIndex(-1)
       setResult(null)
       setLive(null)
+      run.current = null
       try {
         // Unlock audio directly from the user's action, before any demonstration/count-in.
         const ctx = await engine.ensureContext()
@@ -95,8 +98,8 @@ export function useExercise(level: LevelDef) {
               nextMode === 'listen'
                 ? 'Listen to the rhythm.'
                 : nextMode === 'practice'
-                  ? 'After the count, tap with the guide.'
-                  : 'Listen to the count. Then it is your turn.',
+                  ? 'Listen as long as you like. Your first tap starts practice.'
+                  : 'Listen as long as you like. Your first tap starts the round.',
             )
             prompt.rate = 0.9
             const done = () => {
@@ -121,9 +124,15 @@ export function useExercise(level: LevelDef) {
           settings.latencyOffsetMs,
         )
         run.current = { timeline, taps: [], offset: settings.latencyOffsetMs }
-        timeline.clicks.forEach((click) =>
-          engine.scheduleAt(click.at, click.kind),
-        )
+        // Schedule only the introduction. The response has no deadline until a tap.
+        timeline.clicks
+          .filter(
+            (click) => nextMode === 'listen' || click.at < timeline.playAt,
+          )
+          .forEach((click) => engine.scheduleAt(click.at, click.kind))
+        const example = createTimeline(level, 'listen', 0)
+        const cycleDuration = example.total * example.step
+        let nextExampleAt = timeline.playAt
         let previousStage = ''
         let previousIndex = -2
         let previousCount = -1
@@ -134,18 +143,37 @@ export function useExercise(level: LevelDef) {
             return
           }
           const now = audibleTime(ctx)
-          const position = positionAt(timeline, now)
+          const active = run.current!
+          // Keep one example cycle scheduled ahead while waiting, without recording
+          // attempts or misses. stop() cancels these sources on the first tap.
+          if (nextMode !== 'listen' && !active.timeline.responseStarted) {
+            if (nextExampleAt + cycleDuration < ctx.currentTime)
+              nextExampleAt +=
+                Math.floor((ctx.currentTime - nextExampleAt) / cycleDuration) *
+                cycleDuration
+            while (nextExampleAt < ctx.currentTime + 0.12) {
+              for (const click of example.clicks) {
+                const at = nextExampleAt + click.at
+                if (at >= ctx.currentTime) engine.scheduleAt(at, click.kind)
+              }
+              nextExampleAt += cycleDuration
+            }
+          }
+          const position = positionAt(
+            active.timeline,
+            now - (active.timeline.responseStarted ? active.offset / 1000 : 0),
+          )
           if (position.stage === 'finished') {
             running.current = false
             engine.stop()
             if (nextMode === 'listen') setPhase('heard')
             else {
               const finished = scoreSession(
-                timeline.expected,
-                run.current!.taps,
-                settings.latencyOffsetMs,
+                active.timeline.expected,
+                active.taps,
+                active.offset,
                 timingEaseFor(level),
-                timeline.step,
+                active.timeline.step,
               )
               setResult(finished)
               setLive(null)
@@ -184,8 +212,31 @@ export function useExercise(level: LevelDef) {
     const active = run.current
     const ctx = engine.getContext()
     if (!active || !ctx || !running.current) return
+    if (ctx.state !== 'running') {
+      pause()
+      return
+    }
     const now = audibleTime(ctx)
-    if (positionAt(active.timeline, now).stage !== 'play') return
+    const position = positionAt(
+      active.timeline,
+      now - (active.timeline.responseStarted ? active.offset / 1000 : 0),
+    )
+    if (position.stage === 'waiting') {
+      engine.stop()
+      active.timeline = anchorToFirstTap(active.timeline, now, active.offset)
+      // The first tap supplies beat one. Do not replay it or leave preview sounds
+      // queued under the response, especially in memory/silent exercises.
+      for (const click of active.timeline.clicks) {
+        if (
+          click.at > active.timeline.expected[0] &&
+          click.at > ctx.currentTime
+        )
+          engine.scheduleAt(click.at, click.kind)
+      }
+      setPhase('play')
+      setIndex(positionAt(active.timeline, now - active.offset / 1000).index)
+      setCount(0)
+    } else if (position.stage !== 'play') return
     active.taps.push(now)
     const score = scoreSession(
       active.timeline.expected,
@@ -201,7 +252,7 @@ export function useExercise(level: LevelDef) {
       (score.feedback === 'perfect' || score.feedback === 'good')
     )
       navigator.vibrate?.(10)
-  }, [level])
+  }, [level, pause])
 
   return { phase, mode, index, count, result, live, start, pause, tap }
 }

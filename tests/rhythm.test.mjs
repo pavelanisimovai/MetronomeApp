@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { scoreSession } from '../src/games/shared/scoring.ts'
 import {
   createTimeline,
+  anchorToFirstTap,
   positionAt,
   isQuietStep,
   audibleTime,
@@ -62,7 +63,7 @@ test('missing and extra taps break combo, and no input awards no stars', () => {
   assert.equal(scoreSession([1, 2], [1, 1.5, 2]).maxCombo, 1)
   assert.equal(scoreSession(expected, []).stars, 0)
 })
-test('all 40 lessons align count-in, audio and response to the musical grid', () => {
+test('all 40 lessons wait indefinitely, then align the round to the first tap', () => {
   assert.equal(allLevels.length, 40)
   for (const level of allLevels) {
     const t = createTimeline(level, 'attempt', 10)
@@ -71,20 +72,49 @@ test('all 40 lessons align count-in, audio and response to the musical grid', ()
         1e-8,
       level.id,
     )
-    for (let i = 0; i < t.total; i++) {
-      assert.equal(
-        positionAt(t, t.playAt + i * t.step + 0.001).index,
-        i,
-        `${level.id} step ${i}`,
-      )
-    }
     assert.equal(positionAt(t, t.playAt - 0.001).stage, 'countin')
-    assert.equal(positionAt(t, t.endAt).stage, 'finished')
-    assert.equal(
-      scoreSession(t.expected, t.expected, 0, 1, t.step).accuracy,
-      100,
-    )
+    assert.equal(positionAt(t, t.playAt).stage, 'waiting')
+    assert.equal(positionAt(t, t.endAt + 3600).stage, 'waiting')
+    for (const offset of [-200, 0, 120, 300]) {
+      const firstTap = t.endAt + 3600.317
+      const response = anchorToFirstTap(t, firstTap, offset)
+      const taps = response.expected.map((time) => time + offset / 1000)
+      assert.ok(Math.abs(taps[0] - firstTap) < 1e-8)
+      assert.equal(positionAt(response, firstTap - offset / 1000).stage, 'play')
+      for (let i = 0; i < response.total; i++)
+        assert.equal(
+          positionAt(response, response.playAt + i * response.step + 0.001)
+            .index,
+          i,
+          `${level.id} step ${i}`,
+        )
+      assert.equal(positionAt(response, response.endAt).stage, 'finished')
+      assert.equal(
+        scoreSession(response.expected, taps, offset, 1, response.step)
+          .accuracy,
+        100,
+      )
+      assert.ok(response.clicks.every((click) => click.at >= response.playAt))
+    }
   }
+})
+test('first tap counts once; later misses and extras still affect the anchored score', () => {
+  const level = allLevels.find((l) => l.id === 'echo-1b')
+  const timeline = anchorToFirstTap(createTimeline(level, 'attempt', 0), 100)
+  const partial = scoreSession(timeline.expected, [100], 0, 1, timeline.step)
+  assert.equal(partial.perfect, 1)
+  assert.equal(partial.miss, 2)
+  const extra = scoreSession(
+    timeline.expected,
+    [...timeline.expected, 100 + 2 * timeline.step],
+    0,
+    1,
+    timeline.step,
+  )
+  assert.equal(extra.extra, 1)
+  assert.ok(extra.stars < 3)
+  const practice = createTimeline(level, 'practice', 0)
+  assert.equal(positionAt(practice, 10000).stage, 'waiting')
 })
 test('demonstration ends without a scored response; practice includes sounding notes', () => {
   const level = allLevels.find((l) => l.id === 'echo-1b')

@@ -52,7 +52,9 @@ function Lesson({ level }: { level: LevelDef }) {
   const inDaily =
     params.has('practice') && practice.queue[practice.index] === level.id
   const statusRef = useRef<HTMLHeadingElement>(null)
-  const active = ['preparing', 'listen', 'countin', 'play'].includes(phase)
+  const active = ['preparing', 'listen', 'countin', 'waiting', 'play'].includes(
+    phase,
+  )
   const hiddenPattern =
     level.game === 'memory' && mode === 'attempt' && phase === 'play'
   const quiet =
@@ -76,27 +78,29 @@ function Lesson({ level }: { level: LevelDef }) {
           ? 'Listen first'
           : phase === 'countin'
             ? 'Count with the clicks'
-            : phase === 'play'
-              ? mode === 'practice'
-                ? 'Tap with the guide'
-                : quiet
-                  ? 'Keep tapping through silence'
-                  : 'Your turn'
-              : phase === 'heard'
-                ? 'Ready to tap along?'
-                : phase === 'practised'
-                  ? 'Practice round finished'
-                  : phase === 'paused'
-                    ? 'Take your time'
-                    : phase === 'error'
-                      ? 'Let’s get the sound working'
-                      : 'Your result'
+            : phase === 'waiting'
+              ? 'Tap when you’re ready'
+              : phase === 'play'
+                ? mode === 'practice'
+                  ? 'Tap with the guide'
+                  : quiet
+                    ? 'Keep tapping through silence'
+                    : 'Your turn'
+                : phase === 'heard'
+                  ? 'Ready to tap along?'
+                  : phase === 'practised'
+                    ? 'Practice round finished'
+                    : phase === 'paused'
+                      ? 'Take your time'
+                      : phase === 'error'
+                        ? 'Let’s get the sound working'
+                        : 'Your result'
 
   useEffect(() => {
     if (['heard', 'practised', 'done', 'paused', 'error'].includes(phase))
       statusRef.current?.focus()
   }, [phase])
-  useKeyboardTap(phase === 'play', tap)
+  useKeyboardTap(phase === 'waiting' || phase === 'play', tap)
   const success = Boolean(result && result.stars > 0)
   const nextPath = inDaily
     ? practice.index + 1 < practice.queue.length
@@ -166,7 +170,7 @@ function Lesson({ level }: { level: LevelDef }) {
         {phase === 'countin' ? (
           <div className={styles.count} aria-hidden="true">
             {count}
-            <small>of {level.beatsPerBar} · tap after the count</small>
+            <small>of {level.beatsPerBar} · then start when ready</small>
           </div>
         ) : phase !== 'done' && phase !== 'practised' ? (
           <>
@@ -186,7 +190,8 @@ function Lesson({ level }: { level: LevelDef }) {
                 </p>
                 {index >= 0 && (
                   <span>
-                    {Math.min(index + 1, total)} of {total} taps
+                    {phase === 'waiting' ? 'Example · ' : ''}
+                    {Math.min(index + 1, total)} of {total} beats
                   </span>
                 )}
               </div>
@@ -245,27 +250,33 @@ function Lesson({ level }: { level: LevelDef }) {
         />
       ) : (
         <div className={styles.dock}>
-          {phase === 'play' ? (
+          {phase === 'waiting' || phase === 'play' ? (
             <>
               <p className={styles.feedback} aria-hidden="true">
-                {live?.feedback === 'extra'
-                  ? 'One tap for each sound'
-                  : live?.feedback === 'perfect'
-                    ? 'Right with the beat'
-                    : live?.feedback === 'good'
-                      ? 'Good timing'
-                      : live?.feedback === 'ok'
-                        ? live.direction === 'early'
-                          ? 'A little early'
-                          : 'A little late'
-                        : 'Tap once with each sound'}
+                {phase === 'waiting'
+                  ? 'First tap starts your round'
+                  : live?.feedback === 'extra'
+                    ? 'One tap for each sound'
+                    : live?.feedback === 'perfect'
+                      ? 'Right with the beat'
+                      : live?.feedback === 'good'
+                        ? 'Good timing'
+                        : live?.feedback === 'ok'
+                          ? live.direction === 'early'
+                            ? 'A little early'
+                            : 'A little late'
+                          : 'Tap once with each sound'}
               </p>
               <TapPad className={styles.tapPad} onTap={tap}>
-                Tap
+                {phase === 'waiting' ? 'Tap to start' : 'Tap'}
               </TapPad>
               <div className={styles.below}>
                 <span>
-                  {mode === 'practice' ? 'Practice · no stars' : 'Try yourself'}{' '}
+                  {phase === 'waiting'
+                    ? 'Example repeats · no score yet'
+                    : mode === 'practice'
+                      ? 'Practice · no stars'
+                      : 'Try yourself'}{' '}
                   · Space or Enter to tap
                 </span>
                 <button type="button" onClick={pause}>
@@ -288,7 +299,7 @@ function Lesson({ level }: { level: LevelDef }) {
                     : 'Getting ready…'}
               </button>
               <div className={styles.below}>
-                <span>Your turn begins after the count</span>
+                <span>Your first tap starts the round</span>
                 <button type="button" onClick={pause}>
                   Pause
                 </button>
@@ -373,7 +384,7 @@ function Lesson({ level }: { level: LevelDef }) {
                   : 'Start with a count-in'}
               </button>
               <p className={styles.caption}>
-                Sound on · Tap the screen or use Space / Enter during your turn.
+                Listen as long as you like. Your first tap starts the round.
               </p>
             </>
           )}
@@ -383,7 +394,9 @@ function Lesson({ level }: { level: LevelDef }) {
         <summary>How this lesson works</summary>
         <p>
           {instructions[level.game]} A numbered count-in sets the pace before
-          you tap. In practice, the guide stays visible and no result is saved.
+          the example repeats. Listen for as long as you like, then tap to start
+          from the first beat. Scoring starts with that tap, not the count-in.
+          In practice, the guide stays visible and no result is saved.
         </p>
         <p>
           {level.game === 'memory'

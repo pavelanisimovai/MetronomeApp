@@ -57,13 +57,15 @@ try {
     .getByRole('button', { name: 'Start with a count-in', exact: true })
     .click()
   await page
-    .getByRole('button', { name: 'Tap', exact: true })
+    .getByRole('button', { name: 'Tap to start', exact: true })
     .waitFor({ timeout: 20000 })
+  await scan('waiting for first tap')
+  await page.getByRole('button', { name: 'Tap to start', exact: true }).click()
   await scan('echo during response')
   await page
     .getByRole('region', { name: 'Round result' })
     .waitFor({ timeout: 15000 })
-  await scan('no-input result')
+  await scan('partially completed result')
   assert.deepEqual(failures, [])
   console.log(
     `${scans} accessibility scans passed. Manual assistive-technology testing is still required.`,

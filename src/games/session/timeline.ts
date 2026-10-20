@@ -2,9 +2,10 @@ import type { LevelDef } from '../../data/levels/types.ts'
 import type { ClickKind } from '../../audio/sounds.ts'
 
 export type RunMode = 'listen' | 'practice' | 'attempt'
-export type Stage = 'listen' | 'countin' | 'play' | 'finished'
+export type Stage = 'listen' | 'countin' | 'waiting' | 'play' | 'finished'
 export type Timeline = {
   mode: RunMode
+  responseStarted: boolean
   step: number
   beat: number
   origin: number
@@ -94,6 +95,7 @@ export function createTimeline(
   }
   return {
     mode,
+    responseStarted: false,
     step,
     beat,
     origin,
@@ -107,10 +109,51 @@ export function createTimeline(
   }
 }
 
+/** The first input is the first target, regardless of how long the learner listened.
+ * Expected times use the calibrated clock; response visuals use that same clock.
+ */
+export function anchorToFirstTap(
+  timeline: Timeline,
+  firstTap: number,
+  offsetMs = 0,
+): Timeline {
+  const playAt =
+    firstTap - offsetMs / 1000 - (timeline.expected[0] - timeline.playAt)
+  const shift = playAt - timeline.playAt
+  return {
+    ...timeline,
+    responseStarted: true,
+    origin: playAt,
+    countAt: playAt,
+    playAt,
+    endAt:
+      playAt +
+      Math.max(
+        timeline.total * timeline.step,
+        (timeline.total - 1) * timeline.step + timeline.step * 0.45 + 0.02,
+      ),
+    expected: timeline.expected.map((time) => time + shift),
+    clicks: timeline.clicks
+      .filter((click) => click.at >= timeline.playAt)
+      .map((click) => ({ ...click, at: click.at + shift })),
+  }
+}
+
 export function positionAt(
   timeline: Timeline,
   now: number,
 ): { stage: Stage; index: number; count: number } {
+  if (
+    timeline.mode !== 'listen' &&
+    !timeline.responseStarted &&
+    now >= timeline.playAt
+  )
+    return {
+      stage: 'waiting',
+      index:
+        Math.floor((now - timeline.playAt) / timeline.step) % timeline.total,
+      count: 0,
+    }
   if (now >= timeline.endAt) return { stage: 'finished', index: -1, count: 0 }
   if (now < timeline.countAt)
     return {

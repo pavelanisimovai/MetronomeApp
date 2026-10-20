@@ -10,6 +10,8 @@ All 10 axe accessibility scans completed with zero detected violations; incomple
 
 The iPhone audio follow-up passed build, lint, 19 unit tests, 13 browser product checks and all 10 accessibility scans. New tests simulate the optional audio-session API and Safari's interrupted state, verify recovery using a real Chromium audio context, and check rejected/stalled activation. They do not emulate the iPhone's hardware mute switch or certify audible output on iOS.
 
+The first-tap start update passed 20 unit tests, 14 browser product checks and 11 accessibility scans. Waiting beyond the old round deadline still produces no result; a later first tap starts a complete round. Keyboard initiation records exactly one tap, preview audio is cancelled before Silent Recall, and pause/restart/exit clean up repeated examples. Mobile screenshots confirm the waiting instructions and tap target remain visible.
+
 ## Automated release gates
 
 Run the production build and lint, then `npm run test:unit`. With preview on port 4173, run `npm run test:smoke` and `npm run test:a11y`.
@@ -17,6 +19,9 @@ Run the production build and lint, then `npm run test:unit`. With preview on por
 - Correct rhythms pass; dense tapping/rest taps cannot earn the same mastery.
 - Live and final matching agree, including positive/negative offsets and dense subdivisions.
 - Every level's response/count-in/visual index shares its musical grid.
+- Waiting through multiple example loops never creates misses, scores or progress. The first tap counts once and starts a full response at the lesson tempo, regardless of when it occurs.
+- First-tap timing works with positive and negative calibration offsets. Pattern rests and later missed/extra taps are still graded.
+- The first tap cancels pending preview sources; Silent Recall stays silent and conceals the pattern only during the response. Pausing/restarting/leaving also cancels the waiting loop.
 - Exit cancels scheduled sounds. Interruption produces a restartable, unscored pause.
 - Native link/button behavior and keyboard shortcuts coexist without double taps.
 - Guided practice does not save achievement scores; unattended rounds do not count as practice.

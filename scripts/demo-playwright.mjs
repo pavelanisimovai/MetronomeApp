@@ -30,8 +30,10 @@ try {
     .getByRole('button', { name: 'Practise together', exact: true })
     .click()
   await page
-    .getByRole('button', { name: 'Tap', exact: true })
+    .getByRole('button', { name: 'Tap to start', exact: true })
     .waitFor({ timeout: 12000 })
+  await page.screenshot({ path: `${outDir}/waiting-for-first-tap.png` })
+  await page.getByRole('button', { name: 'Tap to start', exact: true }).click()
   await page.screenshot({ path: `${outDir}/guided-practice.png` })
   console.log(`Screenshots saved in ${outDir}`)
 } finally {

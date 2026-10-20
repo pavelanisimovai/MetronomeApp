@@ -156,7 +156,8 @@ export function SettingsPage() {
           <summary>Adjust offset manually</summary>
           <p className={styles.help}>
             Positive values compensate for taps arriving late. Recheck after
-            changing headphones. This affects scoring, not the exercise tempo.
+            changing headphones. Your first tap sets the timing reference;
+            this offset adjusts guide-click timing, not the exercise tempo.
           </p>
           <label>
             Offset ({s.latencyOffsetMs} ms)
