@@ -215,8 +215,9 @@ function Lesson({ level }: { level: LevelDef }) {
         )}
         {phase === 'error' && (
           <p>
-            Check your device volume, then try again. If sound is blocked, allow
-            audio for this site.
+            Tap Restart round to try again. If you still cannot hear anything,
+            open <Link to="/settings">Settings</Link> for a sound check and
+            iPhone troubleshooting.
           </p>
         )}
         {phase === 'ready' && (

@@ -8,6 +8,8 @@ Production build, lint and whitespace checks passed. All 12 unit tests and all 1
 
 All 10 axe accessibility scans completed with zero detected violations; incomplete rules still need manual review. Mobile screenshots of Learn and guided practice were also inspected. These results do not certify physical audio latency, Safari, assistive technology or usability with children and adults; the remaining validation is listed below.
 
+The iPhone audio follow-up passed build, lint, 19 unit tests, 13 browser product checks and all 10 accessibility scans. New tests simulate the optional audio-session API and Safari's interrupted state, verify recovery using a real Chromium audio context, and check rejected/stalled activation. They do not emulate the iPhone's hardware mute switch or certify audible output on iOS.
+
 ## Automated release gates
 
 Run the production build and lint, then `npm run test:unit`. With preview on port 4173, run `npm run test:smoke` and `npm run test:a11y`.
@@ -26,6 +28,7 @@ Run the production build and lint, then `npm run test:unit`. With preview on por
 
 These cannot be certified by a Linux Chromium run:
 
+- iPhone audio recovery fix: verify the sound check, lesson example, calibration and metronome with Silent Mode both on and off; repeat in Safari and as an installed Home Screen app. Interrupt playback with a call/background transition and restart from a fresh tap. Older iOS versions without `navigator.audioSession` may still require Silent Mode off.
 - iPhone/Safari and Android/Chrome: user-gesture audio unlock, speakers, wired/Bluetooth headphones, vibration support, audio output switching, phone-call interruption and background/foreground transitions.
 - Physical tap-to-sound timing, first-beat predictability, latency-offset sign and repeatability. Check fallback behavior where output timestamps are unavailable.
 - Screen reader and switch/voice input; keyboard alone; 200% text; landscape; safe areas; touch target stability. Confirm phase announcements do not mask the beat.

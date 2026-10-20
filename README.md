@@ -24,6 +24,12 @@ npm run dev
 
 The frontend needs no backend or credentials. Append `?nosw=1` during development to bypass cached service-worker content. Device audio must be enabled through a user interaction.
 
+## Sound on iPhone
+
+The app requests a playback audio session when supported by Safari, and resumes suspended or interrupted audio directly from the user's tap. Unsupported browsers keep the normal Web Audio startup path. An unsuccessful or stalled resume shows a retry action instead of silently starting an exercise.
+
+If there is still no sound, use Settings → Play a test sound. Turn up media volume, check the Bluetooth output, and try disabling Silent Mode; older iOS versions can mute browser audio even when other apps remain audible. Open embedded browser pages in Safari. After a call or returning to the app, restart playback.
+
 ## Build and test
 
 ```bash

@@ -4,6 +4,7 @@ import { metronomeEngine, type Subdivision } from '../audio/MetronomeEngine'
 import { listClickSounds } from '../audio/sounds'
 import { isInteractiveTarget } from '../hooks/useKeyboardTap'
 import { useHaptics } from '../hooks/useHaptics'
+import { SoundHelp } from '../components/SoundHelp'
 import { useSettingsStore } from '../store/settingsStore'
 import styles from './MetronomePage.module.css'
 
@@ -110,7 +111,7 @@ export function MetronomePage() {
       desiredRunning.current = false
       console.error('Metronome start failed', err)
       setAudioError(
-        'Sound could not start. Check your volume and browser audio permissions, then try again.',
+        'Sound could not start. Tap Start to try again, or open “No sound?” below.',
       )
       metronomeEngine.stop()
       setRunning(false)
@@ -248,6 +249,7 @@ export function MetronomePage() {
         {audioError && <p role="alert">{audioError}</p>}
       </section>
 
+      <SoundHelp />
       <details className={styles.advanced}>
         <summary>Sound & rhythm options</summary>
         <section className={styles.controls}>

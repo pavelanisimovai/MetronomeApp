@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Calibration } from '../components/Calibration'
+import { SoundHelp } from '../components/SoundHelp'
 import { metronomeEngine } from '../audio/MetronomeEngine'
 import { listClickSounds } from '../audio/sounds'
 import { useSettingsStore } from '../store/settingsStore'
@@ -30,12 +31,12 @@ export function SettingsPage() {
       metronomeEngine.setConfig({ sound: s.sound, volume: s.volume })
       metronomeEngine.scheduleAt(ctx.currentTime + 0.1, 'downbeat')
       setSoundMessage(
-        'A test click played. If you did not hear it, check your device volume or try another sound.',
+        'Did you hear the click? If not, open “No sound?” below.',
       )
     } catch {
       if (token === soundToken.current)
         setSoundMessage(
-          'Sound could not start. Check browser audio permissions and try again.',
+          'Sound could not start. Tap Play a test sound again, or open “No sound?” below.',
         )
     }
   }
@@ -111,6 +112,7 @@ export function SettingsPage() {
         <p role="status" className={styles.help}>
           {soundMessage}
         </p>
+        <SoundHelp />
         <Toggle
           label="Emphasize the first beat"
           checked={s.accentDownbeat}

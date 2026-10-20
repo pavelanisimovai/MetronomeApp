@@ -1,5 +1,6 @@
 import { scheduleClick, type ClickKind, type ClickSoundId } from './sounds'
 import { beatDurationSec } from './timing'
+import { requestPlaybackSession, resumeAudioContext } from './activation'
 
 export type Subdivision = 1 | 2 | 3 | 4
 
@@ -61,13 +62,13 @@ export class MetronomeEngine {
   }
 
   async ensureContext(): Promise<AudioContext> {
-    if (!this.ctx) {
+    requestPlaybackSession()
+    if (!this.ctx || this.ctx.state === 'closed') {
       this.ctx = new AudioContext()
     }
-    if (this.ctx.state === 'suspended') {
-      await this.ctx.resume()
-    }
-    return this.ctx
+    const ctx = this.ctx
+    await resumeAudioContext(ctx)
+    return ctx
   }
 
   getContext(): AudioContext | null {

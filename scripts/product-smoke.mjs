@@ -128,6 +128,77 @@ async function tapRound(page, id, mode = 'attempt', offset = 0) {
 }
 try {
   await check(
+    'audio requests playback mode and recovers interrupted or closed contexts',
+    async () => {
+      const { context, page, errors } = await fresh()
+      await context.addInitScript(() => {
+        Object.defineProperty(navigator, 'audioSession', {
+          value: { type: 'auto' },
+          configurable: true,
+        })
+        window.__sessionAtCreation = []
+        window.AudioContext = new Proxy(window.AudioContext, {
+          construct(target, args) {
+            window.__sessionAtCreation.push(navigator.audioSession.type)
+            return Reflect.construct(target, args)
+          },
+        })
+      })
+      await go(page, '/metronome')
+      await page.getByRole('button', { name: 'Start', exact: true }).click()
+      await page.waitForFunction(() => window.__ctx?.state === 'running')
+      assert.deepEqual(await page.evaluate(() => window.__sessionAtCreation), [
+        'playback',
+      ])
+      await page.getByRole('button', { name: 'Stop', exact: true }).click()
+      await page.evaluate(async () => {
+        const ctx = window.__ctx
+        await ctx.suspend()
+        const state = Object.getOwnPropertyDescriptor(
+          BaseAudioContext.prototype,
+          'state',
+        ).get
+        Object.defineProperty(ctx, 'state', {
+          get() {
+            const value = state.call(this)
+            return value === 'suspended' ? 'interrupted' : value
+          },
+        })
+        const resume = ctx.resume.bind(ctx)
+        window.__resumeStates = []
+        ctx.resume = () => {
+          window.__resumeStates.push(ctx.state)
+          return resume()
+        }
+      })
+      await page.getByRole('button', { name: 'Start', exact: true }).click()
+      await page.waitForFunction(() => window.__ctx.state === 'running')
+      assert.deepEqual(await page.evaluate(() => window.__resumeStates), [
+        'interrupted',
+      ])
+      await page.getByRole('button', { name: 'Stop', exact: true }).click()
+      await page.evaluate(() => window.__ctx.close())
+      await page.getByRole('button', { name: 'Start', exact: true }).click()
+      await page.waitForFunction(
+        () =>
+          window.__sessionAtCreation.length === 2 &&
+          window.__ctx.state === 'running',
+      )
+      await page.getByRole('button', { name: 'Stop', exact: true }).click()
+      await page.getByRole('link', { name: 'Settings', exact: true }).click()
+      await page
+        .getByRole('button', { name: 'Play a test sound', exact: true })
+        .click()
+      await page
+        .getByText('Did you hear the click?', { exact: false })
+        .waitFor()
+      await page.getByText('No sound?', { exact: true }).click()
+      await page.getByText(/On iPhone, try turning off Silent Mode/).waitFor()
+      assert.deepEqual(errors, [])
+      await context.close()
+    },
+  )
+  await check(
     'first-run action, mobile lesson pad and metronome Start fit small screens',
     async () => {
       const { context, page } = await fresh({ width: 320, height: 568 })
