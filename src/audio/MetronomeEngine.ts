@@ -36,6 +36,9 @@ const LOOKAHEAD_MS = 25
 const SCHEDULE_AHEAD_SEC = 0.12
 
 export class MetronomeEngine {
+  private generation = 0
+  private sources = new Set<AudioScheduledSourceNode>()
+  private notifications = new Set<number>()
   private ctx: AudioContext | null = null
   private timerId: number | null = null
   private nextNoteTime = 0
@@ -118,26 +121,23 @@ export class MetronomeEngine {
 
   private scheduleNote() {
     if (!this.ctx) return
-    const { timeSignature, subdivision, sound, volume, accentDownbeat, audibleSubdivisions } =
+    const { timeSignature, subdivision, accentDownbeat, audibleSubdivisions } =
       this.config
     const isBeat = this.currentSub === 0
     const isDownbeat = isBeat && this.currentBeat === 0
     const muted = this.isMutedBar()
 
-    let kind: ClickKind = 'subdivision'
-    if (isDownbeat) kind = 'downbeat'
-    else if (isBeat) kind = 'beat'
-
-    const shouldPlay =
-      !muted &&
-      (isBeat || audibleSubdivisions) &&
-      (kind !== 'downbeat' || accentDownbeat || true)
+    const shouldPlay = !muted && (isBeat || audibleSubdivisions)
 
     if (shouldPlay) {
       const playKind: ClickKind =
-        isDownbeat && accentDownbeat ? 'downbeat' : isBeat ? 'beat' : 'subdivision'
+        isDownbeat && accentDownbeat
+          ? 'downbeat'
+          : isBeat
+            ? 'beat'
+            : 'subdivision'
       try {
-        scheduleClick(this.ctx, this.nextNoteTime, sound, playKind, volume)
+        this.scheduleAt(this.nextNoteTime, playKind)
       } catch (err) {
         console.error('scheduleClick failed', err)
       }
@@ -154,8 +154,16 @@ export class MetronomeEngine {
     }
 
     // Defer UI notification until near the audio time using setTimeout from performance clock approx
-    const delayMs = Math.max(0, (this.nextNoteTime - this.ctx.currentTime) * 1000 - 4)
-    window.setTimeout(() => this.emit(event), delayMs)
+    const delayMs = Math.max(
+      0,
+      (this.nextNoteTime - this.ctx.currentTime) * 1000 - 4,
+    )
+    const generation = this.generation
+    const id = window.setTimeout(() => {
+      this.notifications.delete(id)
+      if (generation === this.generation) this.emit(event)
+    }, delayMs)
+    this.notifications.add(id)
 
     this.nextNoteTime += this.stepDuration()
     this.currentSub += 1
@@ -178,7 +186,10 @@ export class MetronomeEngine {
   }
 
   async start(fromBar = 0) {
+    this.stop()
+    const generation = this.generation
     const ctx = await this.ensureContext()
+    if (generation !== this.generation) return
     // Some headless/automated browsers report running but never advance currentTime.
     // Kick the graph so the clock moves when possible.
     try {
@@ -202,6 +213,17 @@ export class MetronomeEngine {
   }
 
   stop() {
+    this.generation++
+    for (const source of this.sources) {
+      try {
+        source.stop()
+      } catch {
+        /* Already ended. */
+      }
+    }
+    this.sources.clear()
+    for (const id of this.notifications) window.clearTimeout(id)
+    this.notifications.clear()
     this.running = false
     if (this.timerId != null) {
       clearInterval(this.timerId)
@@ -217,14 +239,35 @@ export class MetronomeEngine {
 
   /** Schedule a one-shot click at an absolute AudioContext time (for pattern playback). */
   async playClickAt(audioTime: number, kind: ClickKind = 'beat') {
-    const ctx = await this.ensureContext()
-    scheduleClick(ctx, audioTime, this.config.sound, kind, this.config.volume)
+    const generation = this.generation
+    await this.ensureContext()
+    if (generation === this.generation) this.scheduleAt(audioTime, kind)
+  }
+
+  /** Requires ensureContext first; all sources belong to this cancellable session. */
+  scheduleAt(audioTime: number, kind: ClickKind = 'beat') {
+    if (!this.ctx) throw new Error('Audio is not ready')
+    for (const source of scheduleClick(
+      this.ctx,
+      audioTime,
+      this.config.sound,
+      kind,
+      this.config.volume,
+    )) {
+      this.sources.add(source)
+      source.addEventListener('ended', () => this.sources.delete(source), {
+        once: true,
+      })
+    }
   }
 
   private async requestWakeLock() {
     try {
       if ('wakeLock' in navigator) {
-        this.wakeLock = await navigator.wakeLock.request('screen')
+        const generation = this.generation
+        const lock = await navigator.wakeLock.request('screen')
+        if (generation !== this.generation) await lock.release()
+        else this.wakeLock = lock
       }
     } catch {
       // ignore

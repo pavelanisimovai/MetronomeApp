@@ -1,21 +1,30 @@
 import { useEffect } from 'react'
 
-/** Space / Enter trigger onTap when enabled. Ignores keys while typing in inputs. */
+export function isInteractiveTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    Boolean(
+      target.closest(
+        'a, button, input, textarea, select, summary, [contenteditable="true"], [role="button"]',
+      ),
+    )
+  )
+}
+
+/** Page shortcuts supplement native controls; never intercept their own activation. */
 export function useKeyboardTap(enabled: boolean, onTap: () => void) {
   useEffect(() => {
     if (!enabled) return
     const handler = (e: KeyboardEvent) => {
-      if (e.repeat) return
-      const target = e.target as HTMLElement | null
       if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
+        e.repeat ||
+        e.defaultPrevented ||
+        e.altKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        isInteractiveTarget(e.target)
+      )
         return
-      }
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault()
         onTap()

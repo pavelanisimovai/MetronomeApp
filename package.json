@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:smoke": "node scripts/metronome-smoke.mjs && node scripts/timing-smoke.mjs && node scripts/echo-smoke.mjs"
+    "test:smoke": "node scripts/product-smoke.mjs",
+    "test:unit": "node --test tests/*.test.mjs",
+    "test": "npm run test:unit && npm run test:smoke",
+    "test:a11y": "node scripts/accessibility.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -17,6 +20,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

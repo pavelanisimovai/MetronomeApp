@@ -1,295 +1,182 @@
 .page {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  min-height: calc(100dvh - 40px);
 }
-
-.topBar {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.back {
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.desc {
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
-.silencePanel {
+.header {
   display: grid;
-  gap: 14px;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  background: #121820;
-  border: 1px solid var(--stroke);
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-
-.silencePanel[data-active='true'] {
-  border-color: rgba(240, 199, 94, 0.4);
-  box-shadow: inset 0 0 0 1px rgba(240, 199, 94, 0.08);
-}
-
-.silenceMeta {
-  display: flex;
-  justify-content: space-between;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
-
-.silenceBadge {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.2rem;
-  letter-spacing: -0.02em;
-  color: var(--accent);
+.header h1 {
+  grid-column: 1 / -1;
+  font-size: clamp(1.3rem, 5vw, 1.8rem);
 }
-
-.silencePanel[data-active='true'] .silenceBadge {
-  color: var(--gold);
-}
-
-.legend {
-  display: flex;
-  gap: 12px;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.legend span {
+.back {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-}
-
-.legendSound,
-.legendSilence {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  display: inline-block;
-}
-
-.legendSound {
-  background: var(--accent);
-}
-
-.legendSilence {
-  background: var(--gold);
-}
-
-.boxTrack {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 8px;
-  min-height: 52px;
-}
-
-.box {
-  min-height: 52px;
-  border-radius: 8px;
-  transition:
-    transform 140ms ease,
-    opacity 140ms ease,
-    box-shadow 140ms ease,
-    filter 140ms ease;
-  opacity: 0.38;
-}
-
-.boxSound {
-  background: var(--accent);
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
-}
-
-.boxSilence {
-  background: var(--gold);
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
-}
-
-.boxPreview {
-  opacity: 1;
-}
-
-.boxPast {
-  opacity: 0.55;
-  filter: saturate(0.85);
-}
-
-.boxCurrent {
-  opacity: 1;
-  transform: translateY(-2px) scale(1.04);
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.55),
-    0 8px 20px rgba(0, 0, 0, 0.35);
-}
-
-.silenceFooter {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  min-height: 44px;
   font-weight: 600;
 }
-
-.silenceFooter span:first-child {
-  font-family: var(--font-display);
-  color: var(--text);
-  font-size: 1rem;
+.meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: right;
 }
-
-.pulseStage {
-  position: relative;
-  height: 220px;
+.stage {
   display: grid;
-  place-items: center;
-  border-radius: var(--radius-lg);
-  background:
-    radial-gradient(circle at 50% 45%, rgba(61, 214, 198, 0.16), transparent 55%),
-    var(--bg-elevated);
-  border: 1px solid var(--stroke);
-  overflow: hidden;
-  transition: background 180ms ease, border-color 180ms ease;
+  gap: 14px;
 }
-
-.pulseStage[data-silence='true'] {
-  background:
-    radial-gradient(circle at 50% 45%, rgba(240, 199, 94, 0.18), transparent 55%),
-    #1a1620;
-  border-color: rgba(240, 199, 94, 0.4);
-}
-
-.pulseRing {
-  position: absolute;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 2px solid rgba(61, 214, 198, 0.35);
-  animation: none;
-}
-
-.pulseStage[data-silence='true'] .pulseRing {
-  border-color: rgba(240, 199, 94, 0.45);
-  border-style: dashed;
-}
-
-.pulseStage[data-active='true'] .pulseRing {
-  animation: pulse 0.45s ease-out;
-}
-
-.pulseStage[data-silence='true'][data-active='true'] .pulseRing {
-  animation: pulseSilent 0.55s ease-out;
-}
-
-.pulseCore {
-  position: relative;
-  z-index: 1;
-  font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 800;
-}
-
-.pulseCaption {
-  position: absolute;
-  bottom: 16px;
-  z-index: 1;
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
+.instruction {
+  font-size: clamp(1.15rem, 4.5vw, 1.5rem);
   color: var(--accent);
 }
-
-.pulseStage[data-silence='true'] .pulseCaption {
-  color: var(--gold);
+.stage p,
+.dock p,
+.help p {
+  line-height: 1.5;
+  color: var(--text-muted);
 }
-
-.playDock {
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.options,
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.options button,
+.actions button,
+.secondary {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+}
+.options [aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.dock {
   display: grid;
-  gap: 12px;
-  /* Fixed feedback + tap rows so countdown text never shifts the hit target */
-  grid-template-rows: 52px auto auto;
-  align-items: stretch;
+  gap: 10px;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(7, 11, 20, 0.96), var(--bg-deep));
+  padding: 12px 0 max(10px, var(--safe-bottom));
+  z-index: 2;
 }
-
+.primary {
+  min-height: 54px;
+  background: var(--accent);
+  color: #04201c;
+  border-radius: 16px;
+  padding: 12px 16px;
+  font-weight: 750;
+}
 .tapPad {
-  min-height: 140px;
-  width: 100%;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(61, 214, 198, 0.22), rgba(61, 214, 198, 0.08));
-  border: 1px solid rgba(61, 214, 198, 0.35);
-  font-family: var(--font-display);
-  font-size: 1.5rem;
+  min-height: clamp(96px, 18dvh, 160px);
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 24px;
+  font-size: 1.8rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--text);
   touch-action: manipulation;
   user-select: none;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
-
-.tapPad:disabled {
-  cursor: default;
-  opacity: 1;
-}
-
 .tapPad:active:not(:disabled) {
-  transform: scale(0.985);
-  background: rgba(61, 214, 198, 0.28);
+  background: #225850;
 }
-
-.tapPadCountdown {
-  font-size: 3.4rem;
-  color: var(--gold);
-  background: linear-gradient(180deg, rgba(240, 199, 94, 0.2), rgba(18, 26, 43, 0.9));
-  border-color: rgba(240, 199, 94, 0.4);
+.tapPad:disabled {
+  color: var(--text-muted);
+  border-color: var(--stroke-strong);
+  font-size: 1.2rem;
 }
-
-.tapPadSilent {
-  background: linear-gradient(180deg, rgba(240, 199, 94, 0.24), rgba(240, 199, 94, 0.08));
-  border-color: rgba(240, 199, 94, 0.45);
-  color: var(--gold);
+.below {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
-
-.tapPadSilent:active:not(:disabled) {
-  background: rgba(240, 199, 94, 0.3);
+.below button {
+  min-height: 44px;
+  padding: 8px 12px;
+  text-decoration: underline;
 }
-
-.hint {
-  color: var(--text-dim);
+.feedback {
+  min-height: 24px;
+  text-align: center;
+}
+.caption {
   font-size: 0.85rem;
-  line-height: 1.4;
-  min-height: 2.6em;
 }
-
-.hintSpacer {
-  min-height: 2.6em;
+.count {
+  min-height: 100px;
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+  font-size: 3rem;
+  font-weight: 800;
 }
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.92);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1.15);
-    opacity: 0.15;
-  }
+.count small {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
 }
-
-@keyframes pulseSilent {
-  0% {
-    transform: scale(0.94);
-    opacity: 0.95;
+.silencePanel {
+  padding: 14px;
+  border: 1px solid var(--stroke-strong);
+  background: var(--bg-elevated);
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+}
+.page[data-silence='true'] .silencePanel {
+  border-color: var(--gold);
+}
+.help {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.help summary {
+  padding: 12px 0;
+}
+.help p {
+  margin-bottom: 10px;
+}
+.help a {
+  text-decoration: underline;
+}
+@media (max-height: 700px) {
+  .page {
+    gap: 8px;
+    min-height: calc(100dvh - 40px);
   }
-  100% {
-    transform: scale(1.12);
-    opacity: 0.2;
+  .header {
+    gap: 4px;
+  }
+  .stage {
+    gap: 8px;
+  }
+  .tapPad {
+    min-height: 96px;
+  }
+  .dock {
+    gap: 6px;
+    padding-top: 8px;
   }
 }

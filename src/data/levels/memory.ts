@@ -80,7 +80,9 @@ export const memoryLevels: LevelDef[] = [
     game: 'memory',
     difficulty: 3,
     title: 'Silent Recall',
-    description: 'No click during your response.',
+    description:
+      'Remember the taps and quiet spaces. No clicks while you answer.',
+    responseClick: 'none',
     bpm: 85,
     bars: 1,
     beatsPerBar: 4,

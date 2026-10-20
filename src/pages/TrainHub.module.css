@@ -302,3 +302,47 @@
     padding-top: 12px;
   }
 }
+.hero h1 {
+  max-width: 18ch;
+  line-height: 1.08;
+}
+.textLink {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: underline;
+  color: var(--text-muted);
+}
+.practice {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 24px;
+  background: var(--bg-elevated);
+}
+.practice h2 {
+  font-size: 1.3rem;
+  margin-bottom: 8px;
+}
+.practice p,
+.libraryHint {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.library > summary {
+  font-weight: 700;
+  font-size: 1.2rem;
+  padding: 12px 0;
+}
+.libraryHint {
+  margin: 8px 0 16px;
+}
+.footer {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.diffSummary {
+  grid-template-columns: auto 1fr;
+}

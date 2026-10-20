@@ -1,18 +1,41 @@
-import { difficultyEase } from './difficulties'
-import { echoLevels } from './echo'
-import { keepLevels } from './keep'
-import { memoryLevels } from './memory'
-import { silentLevels } from './silent'
-import type { Difficulty, GameId, LevelDef, SkillPillar } from './types'
+import { difficultyEase } from './difficulties.ts'
+import { echoLevels } from './echo.ts'
+import { keepLevels } from './keep.ts'
+import { memoryLevels } from './memory.ts'
+import { silentLevels } from './silent.ts'
+import type { Difficulty, GameId, LevelDef, SkillPillar } from './types.ts'
 
-export type { Difficulty, GameId, LevelDef, PatternStep, SkillPillar, DifficultyBand } from './types'
-export { difficultyBands, difficultyEase, bandFor } from './difficulties'
+export type {
+  Difficulty,
+  GameId,
+  LevelDef,
+  PatternStep,
+  SkillPillar,
+  DifficultyBand,
+} from './types.ts'
+export { difficultyBands, difficultyEase, bandFor } from './difficulties.ts'
 
 export const skillPillars: SkillPillar[] = [
-  { id: 'keep', label: 'Pulse', blurb: 'Lock a steady beat under pressure.' },
-  { id: 'echo', label: 'Echo', blurb: 'Hear a rhythm, play it back in time.' },
-  { id: 'memory', label: 'Memory', blurb: 'Internalize patterns without the grid.' },
-  { id: 'silent', label: 'Continuity', blurb: 'Keep time when the click disappears.' },
+  {
+    id: 'keep',
+    label: 'Steady beat',
+    blurb: 'Tap along with a regular click.',
+  },
+  {
+    id: 'echo',
+    label: 'Copy a rhythm',
+    blurb: 'Listen, then copy the sounds and quiet spaces.',
+  },
+  {
+    id: 'memory',
+    label: 'Remember a rhythm',
+    blurb: 'Play it again without the visual guide.',
+  },
+  {
+    id: 'silent',
+    label: 'Keep going in silence',
+    blurb: 'Keep tapping when the clicks go quiet.',
+  },
 ]
 
 export const allLevels: LevelDef[] = [
@@ -21,6 +44,18 @@ export const allLevels: LevelDef[] = [
   ...memoryLevels,
   ...silentLevels,
 ]
+
+/** Foundations across all skills before advanced variants. Library access remains open. */
+export const curriculum = allLevels
+  .slice()
+  .sort((a, b) => a.difficulty - b.difficulty)
+export type Achievement = { stars?: number; verifiedStars?: number }
+export function earnedStars(result?: Achievement): number {
+  return result?.verifiedStars ?? 0
+}
+export function prerequisiteFor(id: string): LevelDef | undefined {
+  return curriculum[curriculum.findIndex((l) => l.id === id) - 1]
+}
 
 export function levelsFor(game: GameId): LevelDef[] {
   return allLevels.filter((l) => l.game === game)
@@ -40,48 +75,51 @@ export function timingEaseFor(level: LevelDef): number {
 
 export function nextLevelFor(
   game: GameId,
-  completed: Record<string, { stars: number }>,
+  completed: Record<string, Achievement>,
 ): LevelDef | undefined {
   const list = levelsFor(game)
-  return list.find((l) => (completed[l.id]?.stars ?? 0) < 1) ?? list[list.length - 1]
+  return (
+    list.find((l) => earnedStars(completed[l.id]) < 1) ?? list[list.length - 1]
+  )
 }
 
 export function recommendedLevel(
-  completed: Record<string, { stars: number }>,
+  completed: Record<string, Achievement>,
 ): LevelDef {
   // Prefer easiest unfinished level across the whole curriculum
-  const unfinished = allLevels.find((l) => (completed[l.id]?.stars ?? 0) < 1)
+  const unfinished = curriculum.find((l) => earnedStars(completed[l.id]) < 1)
   if (unfinished) return unfinished
   return keepLevels[0]
 }
 
 export function recommendedDifficulty(
-  completed: Record<string, { stars: number }>,
+  completed: Record<string, Achievement>,
 ): Difficulty {
   return recommendedLevel(completed).difficulty
 }
 
-/** Deterministic daily drill from the player's current difficulty band. */
+/** Three consecutive lessons from the current learning path. */
 export function dailyDrillLevels(
-  date = new Date(),
-  completed: Record<string, { stars: number }> = {},
+  date?: Date,
+  completed: Record<string, Achievement> = {},
 ): LevelDef[] {
-  const seed = Number(date.toISOString().slice(0, 10).replace(/-/g, ''))
-  const d = recommendedDifficulty(completed)
-  const pool = levelsForDifficulty(d)
-  const picks: LevelDef[] = []
-  for (let i = 0; i < 3; i++) {
-    picks.push(pool[(seed + i * 3) % pool.length])
-  }
-  return picks
+  // A real three-lesson session follows the same progression as the main path.
+  void date
+  const first = curriculum.findIndex(
+    (l) => l.id === recommendedLevel(completed).id,
+  )
+  return Array.from(
+    { length: 3 },
+    (_, i) => curriculum[(first + i) % curriculum.length],
+  )
 }
 
 export function starsInDifficulty(
   d: Difficulty,
-  completed: Record<string, { stars: number }>,
+  completed: Record<string, Achievement>,
 ): { earned: number; max: number; cleared: number; total: number } {
   const list = levelsForDifficulty(d)
-  const cleared = list.filter((l) => (completed[l.id]?.stars ?? 0) > 0).length
-  const earned = list.reduce((sum, l) => sum + (completed[l.id]?.stars ?? 0), 0)
+  const cleared = list.filter((l) => earnedStars(completed[l.id]) > 0).length
+  const earned = list.reduce((sum, l) => sum + earnedStars(completed[l.id]), 0)
   return { earned, max: list.length * 3, cleared, total: list.length }
 }

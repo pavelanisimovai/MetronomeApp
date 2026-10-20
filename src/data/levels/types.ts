@@ -23,6 +23,9 @@ export type LevelDef = {
   /** Pattern grid for echo/memory — 1 = hit, 0 = rest */
   pattern?: PatternStep[]
   unlockAfter?: string | null
+  responseClick?: 'none' | 'beat' | 'downbeat'
+  /** Explicit short gaps for introductory silence exercises. */
+  quietSteps?: number[]
   /**
    * Multiplier for hit windows. Higher = more forgiving (great for young kids).
    * Defaults from difficulty if omitted.

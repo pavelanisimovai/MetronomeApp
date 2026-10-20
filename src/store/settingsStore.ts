@@ -15,6 +15,10 @@ type SettingsState = {
   haptics: boolean
   latencyOffsetMs: number
   reducedMotion: boolean
+  guidance: 'guided' | 'quick'
+  spokenPrompts: boolean
+  setGuidance: (v: 'guided' | 'quick') => void
+  setSpokenPrompts: (v: boolean) => void
   setBpm: (bpm: number) => void
   setTimeSignature: (ts: TimeSignature) => void
   setSubdivision: (s: Subdivision) => void
@@ -42,13 +46,19 @@ export const useSettingsStore = create<SettingsState>()(
       haptics: true,
       latencyOffsetMs: 0,
       reducedMotion: false,
-      setBpm: (bpm) => set({ bpm: Math.min(250, Math.max(30, Math.round(bpm))) }),
+      guidance: 'guided',
+      spokenPrompts: false,
+      setGuidance: (guidance) => set({ guidance }),
+      setSpokenPrompts: (spokenPrompts) => set({ spokenPrompts }),
+      setBpm: (bpm) =>
+        set({ bpm: Math.min(250, Math.max(30, Math.round(bpm))) }),
       setTimeSignature: (timeSignature) => set({ timeSignature }),
       setSubdivision: (subdivision) => set({ subdivision }),
       setSound: (sound) => set({ sound }),
       setVolume: (volume) => set({ volume }),
       setAccentDownbeat: (accentDownbeat) => set({ accentDownbeat }),
-      setAudibleSubdivisions: (audibleSubdivisions) => set({ audibleSubdivisions }),
+      setAudibleSubdivisions: (audibleSubdivisions) =>
+        set({ audibleSubdivisions }),
       setScreenFlash: (screenFlash) => set({ screenFlash }),
       setHaptics: (haptics) => set({ haptics }),
       setLatencyOffsetMs: (latencyOffsetMs) => set({ latencyOffsetMs }),

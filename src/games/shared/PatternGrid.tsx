@@ -1,13 +1,11 @@
 import styles from './PatternGrid.module.css'
-import type { PatternStep } from '../../data/levels/types'
 
 type Props = {
-  pattern: PatternStep[]
+  pattern: number[]
   beatsPerBar: number
   subdivision: number
   activeIndex?: number | null
   hideHits?: boolean
-  hitStates?: Array<'pending' | 'perfect' | 'good' | 'ok' | 'miss' | 'rest'>
 }
 
 export function PatternGrid({
@@ -16,24 +14,52 @@ export function PatternGrid({
   subdivision,
   activeIndex = null,
   hideHits = false,
-  hitStates,
 }: Props) {
   const cellsPerBar = beatsPerBar * subdivision
+  // Reveal at most the current bar on long exercises, keeping the pad visible on small phones.
+  const bar =
+    activeIndex != null && activeIndex >= 0
+      ? Math.floor(activeIndex / cellsPerBar)
+      : 0
+  const first = bar * cellsPerBar
+  const cells = pattern.slice(first, first + cellsPerBar)
+  if (hideHits)
+    return (
+      <div
+        className={styles.concealed}
+        role="img"
+        aria-label="Pattern hidden. Remember the sounds and quiet spaces."
+      >
+        Keep the rhythm in your head.
+      </div>
+    )
   return (
-    <div className={styles.wrap} style={{ ['--cells' as string]: cellsPerBar }}>
-      {pattern.map((step, i) => {
-        const state = hitStates?.[i]
-        const classes = [
-          styles.cell,
-          step ? styles.hit : styles.rest,
-          hideHits && step ? styles.hidden : '',
-          activeIndex === i ? styles.active : '',
-          state ? styles[state] : '',
-        ]
-          .filter(Boolean)
-          .join(' ')
-        return <div key={i} className={classes} />
-      })}
+    <div className={styles.group}>
+      <div
+        className={styles.wrap}
+        style={{ ['--cells' as string]: cells.length }}
+        role="img"
+        aria-label={`Pattern${pattern.length > cellsPerBar ? `, group ${bar + 1}` : ''}: ${cells.map((v, i) => `${i + 1} ${v ? 'tap' : 'rest'}`).join(', ')}`}
+      >
+        {cells.map((step, i) => (
+          <div
+            key={first + i}
+            aria-hidden="true"
+            data-step={first + i}
+            data-active={activeIndex === first + i}
+            className={`${styles.cell} ${step ? styles.hit : styles.rest} ${activeIndex === first + i ? styles.active : ''}`}
+          >
+            <span>{i + 1}</span>
+            <strong>{step ? '●' : '–'}</strong>
+          </div>
+        ))}
+      </div>
+      <p className={styles.legend}>
+        ● Tap · – Stay quiet
+        {pattern.length > cellsPerBar
+          ? ` · Group ${bar + 1}/${Math.ceil(pattern.length / cellsPerBar)}`
+          : ''}
+      </p>
     </div>
   )
 }

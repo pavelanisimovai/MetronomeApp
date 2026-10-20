@@ -37,9 +37,23 @@ function playTone(
   gain.connect(ctx.destination)
   osc.start(time)
   osc.stop(time + duration + 0.02)
+  osc.addEventListener(
+    'ended',
+    () => {
+      osc.disconnect()
+      gain.disconnect()
+    },
+    { once: true },
+  )
+  return osc
 }
 
-function playNoiseBurst(ctx: AudioContext, time: number, duration: number, gainValue: number) {
+function playNoiseBurst(
+  ctx: AudioContext,
+  time: number,
+  duration: number,
+  gainValue: number,
+) {
   const length = Math.max(1, Math.floor(ctx.sampleRate * duration))
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
   const data = buffer.getChannelData(0)
@@ -60,6 +74,16 @@ function playNoiseBurst(ctx: AudioContext, time: number, duration: number, gainV
   gain.connect(ctx.destination)
   src.start(time)
   src.stop(time + duration + 0.02)
+  src.addEventListener(
+    'ended',
+    () => {
+      src.disconnect()
+      filter.disconnect()
+      gain.disconnect()
+    },
+    { once: true },
+  )
+  return src
 }
 
 export function scheduleClick(
@@ -72,20 +96,48 @@ export function scheduleClick(
   const v = Math.max(0.05, Math.min(1, volume))
   const accentBoost = kind === 'downbeat' ? 1.15 : kind === 'beat' ? 1 : 0.55
 
+  const sources: AudioScheduledSourceNode[] = []
+  const tone = (
+    freq: number,
+    duration: number,
+    gain: number,
+    type: OscillatorType,
+  ) =>
+    sources.push(
+      playTone(ctx, time, freq, duration, gain * v * accentBoost, type),
+    )
+  const noise = (duration: number, gain: number) =>
+    sources.push(playNoiseBurst(ctx, time, duration, gain * v * accentBoost))
   switch (sound) {
     case 'wood':
-      playTone(ctx, time, kind === 'downbeat' ? 880 : kind === 'beat' ? 660 : 440, 0.06, 0.35 * v * accentBoost, 'triangle')
-      playNoiseBurst(ctx, time, 0.04, 0.18 * v * accentBoost)
+      tone(
+        kind === 'downbeat' ? 880 : kind === 'beat' ? 660 : 440,
+        0.06,
+        0.35,
+        'triangle',
+      )
+      noise(0.04, 0.18)
       break
     case 'click':
-      playTone(ctx, time, kind === 'downbeat' ? 1400 : kind === 'beat' ? 1100 : 800, 0.035, 0.28 * v * accentBoost, 'square')
+      tone(
+        kind === 'downbeat' ? 1400 : kind === 'beat' ? 1100 : 800,
+        0.035,
+        0.28,
+        'square',
+      )
       break
     case 'beep':
-      playTone(ctx, time, kind === 'downbeat' ? 1000 : kind === 'beat' ? 800 : 600, 0.07, 0.3 * v * accentBoost, 'sine')
+      tone(
+        kind === 'downbeat' ? 1000 : kind === 'beat' ? 800 : 600,
+        0.07,
+        0.3,
+        'sine',
+      )
       break
     case 'rim':
-      playNoiseBurst(ctx, time, kind === 'subdivision' ? 0.03 : 0.05, 0.32 * v * accentBoost)
-      playTone(ctx, time, kind === 'downbeat' ? 220 : 180, 0.04, 0.2 * v * accentBoost, 'sine')
+      noise(kind === 'subdivision' ? 0.03 : 0.05, 0.32)
+      tone(kind === 'downbeat' ? 220 : 180, 0.04, 0.2, 'sine')
       break
   }
+  return sources
 }

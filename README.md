@@ -1,39 +1,59 @@
 # MyMetronome
 
-Free, installable rhythm-training PWA. Train pulse, echo, memory, and continuity — with a precise Web Audio metronome underneath.
+Free, installable rhythm practice for first-time learners and experienced musicians. Listen to an example, practise without stars, then try it yourself after a musical count-in.
 
-## Features (v1)
+## Learning and practice
 
-- **Train hub** — skill path across Pulse, Echo, Memory, Continuity + daily drill
-- **Games** — Keep the Beat, Rhythm Echo, Rhythm Memory, Silent Bars (ms scoring, stars)
-- **Metronome** — 30–250 BPM, tap tempo, time signatures, subdivisions, click sounds, visuals
-- **Progress** — local streaks, skill meters, best scores (no account)
-- **PWA** — offline after install
+- **Learn:** a recommended path through steady beat, copying, memory and silence. All 40 lessons are also available in the exercise library.
+- **Guide me / Quick start:** choose how much preparation you want. Examples can be replayed; practice rounds do not affect scores.
+- **Three-lesson sessions:** pause between lessons, resume within the browser tab, and finish with a session summary.
+- **Fair feedback:** extra taps and rests count. Live feedback and results use the same chronological matcher. Three stars require at least 92% and no extra taps.
+- **Metronome:** 30–250 BPM, tap tempo, meters, subdivisions and synthesized click sounds.
+- **Accessibility:** keyboard and touch input, reduced motion, optional spoken instructions, clear pattern descriptions and high-contrast text.
+- **Progress:** local learning coverage, recent timing scores and repeated successful attempts. Earlier results are preserved separately from scores earned under the updated rules.
+- **Offline:** app and lessons work after the service worker has cached the first visit. System fonts and synthesized sounds need no external resources. Optional speech depends on device voices.
 
-## Develop
+## Development
+
+Use Node.js 24 or later (unit tests use native TypeScript stripping).
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-## Build
+The frontend needs no backend or credentials. Append `?nosw=1` during development to bypass cached service-worker content. Device audio must be enabled through a user interaction.
+
+## Build and test
 
 ```bash
 npm run build
-npm run preview
+npm run lint
+npm run test:unit
+npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
 ```
 
-Smoke tests (with preview running on `:4173`):
+With preview running in another terminal:
 
 ```bash
 npm run test:smoke
+npm run test:a11y
 ```
 
-Static output lands in `dist/` — deploy to Cloudflare Pages, Vercel, Netlify, or GitHub Pages.
+Browser scripts use `/usr/bin/chromium` if present, or Playwright's installed Chromium. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to choose another executable. On a machine without a browser, use `npx playwright install chromium` first. `APP_URL` can override the preview origin.
 
-Tip: append `?nosw=1` to skip the service worker during local testing.
+The unit suite covers scoring, musical phase alignment for every lesson, curriculum ordering and date rules. The browser suite checks guided practice, correct and incorrect rounds, native input, small screens, audio cancellation, memory, calibration, interruptions, session completion, old saved data and offline persistence. `SMOKE_FILTER` selects a browser check by name; a filter that matches nothing fails.
 
-## Stack
+`npm run test:a11y` checks WCAG A/AA rules with axe on core pages and exercise states. Automated checks do not replace screen-reader, enlarged-text, real touch/audio-device or participant testing. See [release validation](docs/release-validation.md).
 
-React 19 · TypeScript · Vite · Zustand · Web Audio API · vite-plugin-pwa
+For walkthrough screenshots: `node scripts/demo-playwright.mjs`. Output defaults to `/tmp/metronome-demo`; use `SCREENSHOT_DIR` to change it and `HEADED=1` for a visible browser.
+
+## Timing and saved data
+
+Exercises use one musical timeline for examples, count-ins, visual positions and expected taps. Input and visuals use `AudioContext.getOutputTimestamp()` when available, otherwise the audio context clock. Calibration can compensate for consistent device/tapping delay; it cannot guarantee physical-device latency accuracy.
+
+A session owns and cancels all scheduled sound sources on exit or pause. Backgrounded or interrupted lessons restart with a fresh count-in and no penalty. Memory assistance is explicit in level data; the Silent Recall lesson has no answer clicks.
+
+Existing progress uses an additive storage upgrade: original bests and stars remain in the saved record, while `verifiedStars` and related fields track the new scoring rules. Old stars do not automatically certify the revised curriculum. No-input rounds and unscored practice do not create achievement records. Practice-session position is stored only for the current browser tab.
+
+Static output is in `dist/`. Deploy with SPA fallback routing to `index.html` (including `/play/*` and `/practice`).

@@ -7,7 +7,7 @@
   --stroke-strong: rgba(255, 255, 255, 0.16);
   --text: #eef3ff;
   --text-muted: #9aa8c3;
-  --text-dim: #6d7b96;
+  --text-dim: #a4b2cb;
   --accent: #3dd6c6;
   --accent-strong: #24b9a9;
   --accent-soft: rgba(61, 214, 198, 0.16);
@@ -21,8 +21,8 @@
   --radius-sm: 10px;
   --radius-md: 16px;
   --radius-lg: 24px;
-  --font-display: 'Bricolage Grotesque', Georgia, serif;
-  --font-body: 'Figtree', system-ui, sans-serif;
+  --font-display: ui-rounded, 'Avenir Next', system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --nav-h: 72px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --max-w: 720px;
@@ -36,4 +36,13 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+html[data-reduced-motion='true'] *,
+html[data-reduced-motion='true'] *::before,
+html[data-reduced-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
